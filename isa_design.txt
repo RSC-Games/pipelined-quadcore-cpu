@@ -1,0 +1,193 @@
+INSTRUCTION SET REVISION v1.0
+
+CPU Type: Scalar Pipelined 32 bit RISC CPU.
+Features: 
+	MMU + MPU with full paging support; W^X support. Control is mostly handled in hardware and load/store is hidden to the CPU.
+	Has 16 general purpose registers (3 of them are ABI reserved)
+	No out-of-order optimizations or no superscalar optimizations; pipelining implemented
+	1T memory access.
+	Clocks range from 1 MHz-500 MHz on 4 SMP (Symmetric Multiprocessing) cores.
+	Little Endian byte order (Most significant bytes are stored in highest memory addresses).
+
+What is RISC? What is the alternative?
+	CISC: (Complex Instruction Set Computing)
+	ADD DWORD_PTR[0xFF] DWORD_PTR[0xFA] r1
+
+	RISC: (Reduced Instruction Set Computing)
+	MOV r0 0xFF
+	LDW r1 r0
+	MOV r0 0xFA
+	LDW r2 r0
+	ADD r1 r2 r1
+
+Register file:
+	Has 16 registers (numbered X0-X12 and XRV, XFP, XSP).
+	X0-X12 are general purpose registers. An ABI may make use of some of these for arguments.
+	X13 is the return value register (XRV) (ABI specified, not required by hardware).
+	X14 is the frame pointer (XFP) (ABI specified, not required by hardware).
+	X15 is the stack pointer (XSP) (implemented in hardware; can't change).
+	PC is the dedicated program counter (implemented in hardware).
+	EXC is the exception address register (faulting memory address for load/store faults).
+
+	Register Layout:
+	X0:  0x00000000    X1:  0x00000000    X2:  0x00000000	X3:  0x00000000
+	X4:  0x00000000    X5:  0x00000000    X6:  0x00000000	X7:  0x00000000
+	X8:  0x00000000    X9:  0x00000000    X10: 0x00000000	X11: 0x00000000
+	X12: 0x00000000    XRV: 0x00000000    XFP: 0x00000000	XSP: 0x00000000
+	PC:  0x00000000    EXC: 0x00000000
+
+Instruction encoding:
+	32 bit instruction word (long encoding)
+		- No short encoding currently available
+	8 bit instruction opcode
+	24 bit operand
+
+Instruction set:
+0b00000000 - empty (illegal instruction when jumping to NOP sled to reduce attack surfaces or break infinite loops in empty memory. :D)
+0b00000001 - ADD <SRC register 1> <SRC register 2> <DEST register>  (Addition on 3 registers)
+0b00000010 - ADD_ACC <SRC register 1/DEST register> <SRC register 2> (Adds and accumulates to 1 register)
+0b00000011 - SUB <SRC register 1> <SRC register 2> <DEST register>  (Subtraction on 3 registers)
+0b00000100 - SUB_ACC <SRC register 1/DEST register> <SRC register 2> (Subtracts and accumulates to 1 register)
+0b00000101 - MUL <SRC register 1> <SRC register 2> <DEST register>  (Multiply on 3 registers)
+0b00000110 - MUL_ACC <SRC register 1/DEST register> <SRC register 2> (Multiply and accumulates to 1 register)
+0b00000111 - DIV <SRC register 1> <SRC register 2> <DEST register>  (Division on 3 registers)
+0b00001000 - DIV_ACC <SRC register 1/DEST register> <SRC register 2> (Adds and accumulates to 1 register)
+0b00001001 - empty (ADD_FP (no accumulate instruction here))
+0b00001010 - empty (SUB_FP (no accumulate instruction here))
+0b00001011 - empty (MUL_FP (no accumulate instruction here))
+0b00001100 - empty (DIV_FP (no accumulate instruction here))
+0b00001101 - MOV <SRC register> <DEST register> (Moves one register value to another without clearing the source)
+0b00001110 - MOV_IMM <DEST register> <20 bit immediate> (Move a specified immediate value into a provided register)
+0b00001111 - MOV_IMM_HIGH <DEST register> <16 bit immediate> (Move a specified immediate value into the 2 high bytes of a register)
+0b00010000 - LDB <ADDRESS register> <DEST register> <16 bit immediate> (Load a byte from memory at the address register value, left shift it the given amount, then store it into the given register, overwriting all bits present at that offset. Must be byte aligned)
+0b00010001 - STB <ADDRESS register> <SRC register> <16 bit immediate> (Store a byte to memory at the address register value. Right shift the byte, keep only the lowest byte, and write it to memory.)
+0b00010010 - LD <ADDRESS register> <DEST register> (Load a machine word)
+0b00010011 - ST <ADDRESS register> <DEST register> (Store a machine word)
+0b00010100 - AND <SRC register 1> <SRC register 2> <DEST register> (Perform bitwise AND on two registers and store the result in dest)
+0b00010101 - OR <SRC register 1> <SRC register 2> <DEST register> (Perform bitwise OR on two registers and store the result in dest)
+0b00010110 - XOR <SRC register 1> <SRC register 2> <DEST register> (Perform bitwise XOR on two registers and store the result in dest)
+0b00010111 - NOT <SRC register> <DEST register> (Perform bitwise NOT on the source register)
+0b00011000 - LSH <SRC register 1> <SRC register 2> (Left shifts the provided register by a value in another register)
+0b00011001 - LSH_IMM <SRC register> <20 bit immediate> (Left shifts the provided register by an immediate)
+0b00011010 - RSH <SRC register 1> <SRC register 2> (Right shifts the provided register by a value in another register)
+0b00011011 - RSH_IMM <SRC register> <20 bit immediate> (Right shifts the provided register by an immediate)
+0b00011100 - JMP_IMM <ADDRESS register> <20 bit immediate> (For small code sizes allows extremely fast jumps within a megabyte above the provided address register)
+0b00011101 - JMP_REL <ADDRESS register> <OFFSET register> (Jump to an offset relative to the provided address register)
+0b00011110 - JMP <ADDRESS register> (Jump to an absolute address in the memory space from the provided register)
+0b00011111 - JMPC <3 bit conditional code> <OPERAND register 1> <OPERAND register 2> <ADDRESS register> (Jump conditionally. Codes include EQ, LT, GT, LE, GE, NE. Compare 2 operands with this and if the condition is met, jump to the absolute address in the provided register)
+0b00100000 - JMPC_Z <1 bit conditional code> <OPERAND register> <ADDRESS register> (Jump conditionally. Codes include NZ (NOT ZERO), ZR (ZERO). Compare the operand with 0, and if the condition is met, jump to the absolute address in the provided register)
+0b00100001 - CALL_IMM <ADDRESS register> <20 byte immediate> (Push the PC to the stack, then jump to the function specified at the address + the immediate offset)
+0b00100010 - CALL <ADDRESS register> <OFFSET register> (Push the PC to the stack, then jump to the address in the address register + the offset register)
+0b00100011 - RET (Pop the PC from the stack)
+0b00100100 - PUSH <SRC register> (Push a provided register to the stack)
+0b00100101 - POP <DEST register> (Pop the entry on the stack into the provided register)
+0b00100110 - HLT (Halt the CPU. May be unhalted by any active interrupts)
+
+**************************************** I/O ADDRESS SPACE HAS BEEN DEPRECATED! *****************************************
+0b00100111 - IOW_IMM <PORT 16 bit immediate> <VALUE register> (Write the VALUE register word to the immediately specified I/O port)
+0b00101000 - IOW <PORT register> <VALUE register> (Write the VALUE register word to the provided 16 bit I/O port in the PORT register)
+0b00101001 - IOWB_IMM <PORT 16 bit immediate> <VALUE register> (Write the least significant 8 bits to the provided 16 bit I/O port)
+0b00101010 - IOWB <PORT register> <VALUE register> (Write the least significant byte of the VALUE register to the provided 16 bit I/O port in the PORT register)
+0b00101011 - IOWH_IMM <PORT 16 bit immediate> <VALUE register> (Write the least significant 2 bytes (half word) of the VALUE register to the provided immediate I/O port)
+0b00101100 - IOWH <PORT register> <VALUE register> (Write the least significant 2 bytes (half word) in the provided VALUE register to the 16 bit I/O port address in the PORT register)
+0b00101101 - IOR <PORT register> <DEST register> (Read a word from the provided I/O port register into the DEST register)
+0b00101110 - IORB <PORT register> <DEST register> (Read a byte from the provided I/O port register into the DEST register. The value is 0-extended to the top of the register)
+0b00101111 - IORH <PORT register> <DEST register> (Read 2 bytes (a half word) from the provided I/O port register into the DEST register. The value is 0-extended to the top of the register)
+************************** NOTE: CURRENTLY USED 48/255 opcodes available in the 8-bit encoding. *************************
+
+* OUT OF DATE! *
+Virtual Memory Address Space Layout:
+	0x00000000 - 0x00007EFF: Not memory mapped for illegal address trapping. Only accessible in kernel mode.
+	0x00007F00 - 0x00007FFF: Interrupt Vector Table (For exceptions and interrupts). Only accessible in kernel mode.
+	0x00008000 - 0xFFFF5FFF: Program memory space (stack starts at the high end of memory, at 0xFFFF5FFF, and grows down). Accessible in Kernel or User mode.
+	0xFFFF6000 - 0xFFFFDFFF: Memory-mapped I/O. Allows direct memory access to certain registers instead of through I/O space. Only accessible in kernel mode
+	0xFFFFE000 - 0xFFFFFFFF: Memory mapped ROM code space. Max space is 128 kB. CPU hardwired to start in this address region (PC@0xFFFFFFFB). Only accessible in kernel mode; may be unmapped after boot.
+
+CPU Operation Modes:
+
+
+CPU Exceptions (All NMI Interrupts):
+- LoadFault (Failure to load a value from a given address).
+- StoreFault (Failure to store a value to a given address).
+- PageFault (Page table walk didn't yield page).
+- LoadStoreAlignmentFault (Unaligned address for word on 32 bit boundaries).
+- InvalidOpcodeFault (The instruction specified is not a legal or recognized instruction).
+- InstrFetchAlignmentFault (Unaligned address for instruction fetch (must be on 32 bit boundaries)).
+- InstructionFetchFault (Failure to fetch an instruction for execution).
+- ZeroDivisionFault (Cannot perform integer division by zero).
+- DoubleFault (An exception occurs when trying to load a previous exception handler).
+- (No IVT allocation) TripleFault (Another exception occurs when trying to load the DoubleFault handler).
+
+CPU Interrupts: (Exceptions are literally just interrupts but indicate an error).
+- WDT_EXPIRED (NMI) (The watch dog timer expired and fired an interrupt prior to reset).
+- IRQL0 (Interrupt Request Line 0 was fired and IRQL0 is defined in the Control Registers).
+- IRQL1 (Interrupt Request Line 1 was fired and IRQL1 is defined in the Control Registers).
+- IRQL2 (Same as above)
+- IRQL3
+- TIM0_COMP (Timer 0's counter hits the threshold set in the TIMER_0_CNTR_THRESH register).
+- TIM1_COMP (Timer 1's counter hits the threshold set in the TIMER_1_CNTR_THRESH register).
+- TIM2_COMP (Same as above).
+- TIM3_COMP
+- DMA_COMPLETE (The DMA controller has finished the transfer requested).
+????????????????????????????????????? vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv ????????????????????????????????????????????
+- UART0_RX_BUFFER_FULL (UART0's receive buffer is full).
+- UART0_TX (UART0 is ready to send a byte on the serial channel).
+- UART1_RX (UART1 received a byte on the serial channel).
+- UART1_TX (UART1 is ready to send a byte on the serial channel).
+????????????????????????????????????? ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ????????????????????????????????????????????
+
+
+Interrupt Vector Table: (This is where the CPU jumps when an interrupt occurs).
+IDT+0x00: (4 Bytes): LoadFault (Install handler here)
+IDT+0x04: (4 Bytes): StoreFault
+IDT+0x08: (4 Bytes): LoadStoreAlignmentFault
+IDT+0x0C: (4 Bytes): InvalidOpcodeFault
+IDT+0x10: (4 Bytes): InstructionFetchFault
+IDT+0x14: (4 Bytes): InstrFetchAlignmentFault
+IDT+0x18: (4 Bytes): ZeroDivisionFault
+IDT+0x1C: (4 Bytes): DoubleFault
+IDT+0x20: (4 Bytes): WDT_EXPIRED
+IDT+0x24: (4 Bytes): IRQL0
+IDT+0x28: (4 Bytes): IRQL1
+IDT+0x2C: (4 Bytes): IRQL2
+IDT+0x30: (4 Bytes): IRQL3
+IDT+0x34: (4 Bytes): TIM0_COMP
+IDT+0x38: (4 Bytes): TIM1_COMP
+IDT+0x3C: (4 Bytes): TIM2_COMP
+IDT+0x40: (4 Bytes): TIM3_COMP
+...
+IDT+0xFF: (X Bytes): End of table. Data + Text region begins at the next byte.
+
+CPU Control Registers (Mapped on the I/O Ports): <-- EXPLAIN TO MICHAEL
+    CPU Internal:
+    - IO 0x0000: SYS_DCLK (1 Byte): Prescaler rate. Divide the base clock by powers of 2. (Max value div 16)
+    - IO 0x0001: CORE_XCLK (1 Byte): Multiplier rate. Set the prescaled bus clock multiplier for the CPU. (Max value x8)
+    - IO 0x0002: CORE_INTR (4 Bytes): Allow interrupts globally and disable specific interrupts. (NMI may always fire).
+    - IO 0x0003-0x000F (RESERVED FOR CORE USAGE).
+
+    DMA:
+    - IO 0x0010: DMA_READY (1 Byte): Has the DMA Controller finished the last transaction.
+    - IO 0x0011: RESERVED
+    - IO 0x0012: DMA_SRC_ADDRESS (4 Bytes): DMA transaction source address.
+    - IO 0x0013: DMA_DEST_ADDRESS (4 Bytes): DMA transaction destination address.
+    - IO 0x0014: DMA_COPY_LEN (4 Bytes): DMA transaction length.
+
+    UART: (It is also possible to DMA the UART buffers via the MMIO address).
+    - IO 0x0010: UART0_RX_AVAIL (1 Byte): Is there any data available to read from the UART RX buffer.
+    - IO 0x0011: 
+
+
+Testbed implementation SoC: <-- EXPLAIN TO MICHAEL
+Has 1 CPU core (ranging from 1 MHz to 128 MHz)
+Contains 2 UART tranceivers (In I/O address space)
+Contains 2 SPI controllers (In I/O address space)
+Contains 1 I2C bus (In I/O address space)
+Contains a basic WDT (In I/O address space)
+Contains one DMA Channel (In I/O address space)
+Contains 16 MB SRAM (Memory mapped at address range 0x00008000-0x01008000)
+Base clock crystal is 16 MHz.
+
+I/O Ports and Devices: <-- Explain to Michael
+- UART (serial transmitter/receiver -- how you communicate with the system via a terminal)
+- SPI (Higher performance I/O bus)
+- I2C (Low performance standard one way serial (two wire serial))
