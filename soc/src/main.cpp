@@ -19,16 +19,16 @@ int main() {
     // Create the emulated chip.
     core::SoCConfigurationRing config_ring = {
         4,   // Core count. 4 for testing and production.
-        128, // Memory size in MB.
+        4096, // Memory size in MB.
         64   // Clock speed in MHz.
     };
 
-    core::SoC* soc = new core::SoC(config_ring);
+    core::SoC soc = core::SoC(config_ring);
 
     // Let's do some fun crash stuff.
     //int* thing = nullptr;
     //int a_value = *thing;
 
-    std::cout << "Why did the code manage to get this far?\n";
+    //std::cout << "Why did the code manage to get this far?\n";
     return 0;
 }

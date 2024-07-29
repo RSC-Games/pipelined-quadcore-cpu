@@ -7,17 +7,17 @@ namespace core {
 core::SoC::SoC(const core::SoCConfigurationRing &config_ring) {
     if (config_ring.core_count <= 0 || config_ring.core_count > 4) {
         // Unsupported core configuration.
-        log_error("Unsupported core configuration! Got " + config_ring.core_count);
+        LOG_ERROR("Unsupported core configuration! Got " + std::to_string(config_ring.core_count) + " cores!");
         std::abort();
     }
 
     if (config_ring.mem_size_MB < 16 || config_ring.mem_size_MB > 4096) {
-        log_error("Unsupported memory configuration! Got size " + config_ring.mem_size_MB);
+        LOG_ERROR("Unsupported memory configuration! Got size " + std::to_string(config_ring.mem_size_MB) + " MB!");
         std::abort();
     }
 
     if (config_ring.clock_speed_MHz < 1 || config_ring.clock_speed_MHz > 512) {
-        log_error("Unsupported clock speed requested! Got speed " + config_ring.clock_speed_MHz);
+        LOG_ERROR("Unsupported clock speed requested! Got speed " + std::to_string(config_ring.clock_speed_MHz) + " MHz!");
         std::abort();
     }
 
