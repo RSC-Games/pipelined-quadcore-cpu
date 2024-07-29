@@ -1,5 +1,32 @@
+#include <cstdint>
+
 namespace core {
 
+// CPU Exception Vectors.
+const uint32_t INT_LOAD_FAULT = 0;  // Memory Fault
+const uint32_t INT_STORE_FAULT = 4;  // Memory Fault
+const uint32_t INT_PAGE_FAULT = 8;  // MMU Fault
+const uint32_t INT_INVALID_PAGE_FAULT = 12;  // MMU Fault.
+const uint32_t INT_LOAD_STORE_ALIGNMENT_FAULT = 16;  // Memory Fault.
+const uint32_t INT_INVALID_OPCODE_FAULT = 20;  // CPU Fault.
+const uint32_t INT_INSTRUCTION_FETCH_FAULT = 24;  // Memory Fault.
+const uint32_t INT_INSTR_FETCH_ALIGNMENT_FAULT = 28;  // Memory Fault.
+const uint32_t INT_ZERO_DIVISION_FAULT = 32;  // CPU Fault.
+const uint32_t INT_DOUBLE_FAULT = 36;  // CPU Fault.
+
+// CPU Interrupt Vectors.
+const uint32_t INT_WDT_EXPIRED = 40;
+const uint32_t INT_IRQL0 = 44;
+const uint32_t INT_IRQL1 = 48;
+const uint32_t INT_IRQL2 = 52;
+const uint32_t INT_IRQL3 = 56;
+const uint32_t INT_OS_TIMER_TRIGGER = 60;
+const uint32_t TIM0_COMP = 64;
+const uint32_t TIM1_COMP = 68;
+const uint32_t TIM2_COMP = 72;
+const uint32_t TIM3_COMP = 76;
+
+// Register names and indexes.
 const int REG_X0 = 0;
 const int REG_X1 = 1;
 const int REG_X2 = 2;
@@ -13,15 +40,12 @@ const int REG_X9 = 9;
 const int REG_X10 = 10;
 const int REG_X11 = 11;
 const int REG_X12 = 12;
-
 // X13 and XRV are the same register. They're just aliased.
 const int REG_XRV = 13;
 const int REG_X13 = 13;
-
 // X14 and XFP are the same register (X_FRAME_PTR).
 const int REG_XFP = 14;
 const int REG_X14 = 14;
-
 // X15 and XSP are the same register (X_STACK_PTR).
 const int REG_XSP = 15;
 const int REG_X15 = 15;
@@ -32,9 +56,10 @@ const int PRIV_1_USER_MODE = 1;
 
 // Representation of an individual CPU core.
 class Core {
-    unsigned int priv_lvl = 0; // Current CPU core privilege level.
-    unsigned int pc = 0x0;  // Current instruction to execute.
-    unsigned int* register_file;  // Local architectural state.
+    uint8_t priv_lvl = 0; // Current CPU core privilege level.
+    uint32_t pc = 0x0;  // Current instruction to execute.
+    uint32_t* register_file;  // Local architectural state.
+    uint32_t clock_rate;  // Current CPU clock rate.
     bool halted = true;
     // TODO: Memory Mangement Unit + Memory Protection Unit.
     // TODO: Manage pipeline.
@@ -47,6 +72,7 @@ class Core {
 
     // Allow the SoC to control this and other core power states.
     void CORE_set_halt_state(bool halt);
+    void CORE_set_clock_rate(uint32_t clock_rate_MHz);
 
     private:
     //void _empty  // NOP implemented as ADD_ACC r0, 0

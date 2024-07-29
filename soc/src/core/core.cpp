@@ -19,4 +19,8 @@ void Core::CORE_set_halt_state(bool halt) {
     this->halted = halt;
 }
 
+void Core::CORE_set_clock_rate(uint32_t clock_rate_MHz) {
+    this->clock_rate = 1000000 * clock_rate_MHz;
+}
+
 }
