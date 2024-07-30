@@ -19,7 +19,7 @@ int main() {
     // Create the emulated chip.
     core::SoCConfigurationRing config_ring = {
         4,   // Core count. 4 for testing and production.
-        4096, // Memory size in MB.
+        256, // Memory size in MB.
         64   // Clock speed in MHz.
     };
 

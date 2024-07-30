@@ -1,4 +1,5 @@
 #include <cstdint>
+#include "src/core/mmu.h"
 
 namespace core {
 
@@ -59,13 +60,15 @@ class Core {
     uint8_t priv_lvl = 0; // Current CPU core privilege level.
     uint32_t pc = 0x0;  // Current instruction to execute.
     uint32_t* register_file;  // Local architectural state.
-    uint32_t clock_rate;  // Current CPU clock rate.
+    uint32_t clock_rate = 0;  // Current CPU clock rate.
     bool halted = true;
+
+    core::MMU* mmu;
     // TODO: Memory Mangement Unit + Memory Protection Unit.
     // TODO: Manage pipeline.
 
-    public:
-    Core();
+public:
+    Core(core::Memory* mem);
     Core(Core&& other) = delete;
     Core(const Core& other) = delete;
     ~Core();
@@ -74,7 +77,18 @@ class Core {
     void CORE_set_halt_state(bool halt);
     void CORE_set_clock_rate(uint32_t clock_rate_MHz);
 
-    private:
+    // TODO: Implement pipeline and instruction decoder.
+    void CORE_run_pipeline();
+
+private:
+    // TODO: WHERE do I put these?
+    void CORE_instr_fetch();
+    void CORE_decode_instr();
+    void CORE_execute_op();
+    void CORE_write_back();
+
+    uint32_t MMU_translate_addr(uint32_t vaddr);
+
     //void _empty  // NOP implemented as ADD_ACC r0, 0
     void op_add(int reg_src1, int reg_src2, int reg_dest);
     void op_add_acc(int reg_src_dest, int reg_src2);

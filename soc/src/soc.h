@@ -18,11 +18,13 @@ class SoC {
     core::Core** cores;
     core::Memory* memory;
 
-    public:
+public:
     SoC(const core::SoCConfigurationRing &config_ring);
     SoC(const SoC& other) = delete;
     SoC(SoC&& other) = delete;
     ~SoC();
+
+    inline core::Memory* get_memory();
 };
 
 }

@@ -11,14 +11,14 @@ Features:
 
 What is RISC? What is the alternative?
 	CISC: (Complex Instruction Set Computing)
-	ADD DWORD_PTR[0xFF] DWORD_PTR[0xFA] r1
+	- ADD DWORD_PTR[0xFF] DWORD_PTR[0xFA] r1
 
 	RISC: (Reduced Instruction Set Computing)
-	MOV r0 0xFF
-	LDW r1 r0
-	MOV r0 0xFA
-	LDW r2 r0
-	ADD r1 r2 r1
+	- MOV r0 0xFF
+	- LDW r1 r0
+	- MOV r0 0xFA
+	- LDW r2 r0
+	- ADD r1 r2 r1
 
 Register file:
 	Has 16 registers (numbered X0-X12 and XRV, XFP, XSP).
@@ -91,7 +91,6 @@ CPU Pipeline:
 	5 Stage pipeline:
 	- Instruction Fetch
 	- Instruction Decode
-	- Operand Fetch
 	- Execute
 	- Data Writeback
 

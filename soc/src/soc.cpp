@@ -26,11 +26,11 @@ core::SoC::SoC(const core::SoCConfigurationRing &config_ring) {
     
     // TODO: Put each core on its own execution thread.
     for (int i = 0; i < config_ring.core_count; i++) {
-        this->cores[i] = new core::Core();
+        this->cores[i] = new core::Core(this);
         this->cores[i]->CORE_set_clock_rate(config_ring.clock_speed_MHz);
     }
 
-    this->memory = new Memory(config_ring.mem_size_MB);
+    this->memory = new Memory(config_ring.mem_size_MB * 1048576);
 }
 
 core::SoC::~SoC() {
@@ -41,6 +41,10 @@ core::SoC::~SoC() {
 
     delete this->cores;
     delete this->memory;
+}
+
+inline core::Memory* core::SoC::get_memory() {
+    return this->memory;
 }
 
 }

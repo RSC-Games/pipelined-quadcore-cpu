@@ -5,7 +5,7 @@ class Memory {
     uint8_t* mem_bytes;
     size_t mem_size = 0;
 
-    public:
+public:
     Memory(size_t size);
     Memory(const Memory& other) = delete;
     Memory(Memory&& other) = delete;
