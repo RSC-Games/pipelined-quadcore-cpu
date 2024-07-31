@@ -1,5 +1,8 @@
 #include "src/core/memory.h"
 
+#ifndef INC_CORE_MMU_H
+#define INC_CORE_MMU_H
+
 namespace core {
 
 class MMU {
@@ -15,3 +18,5 @@ public:
     void store_word(uint32_t vaddr, uint32_t word);
 };
 }
+
+#endif  // INC_CORE_MMU_H

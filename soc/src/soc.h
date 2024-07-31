@@ -1,6 +1,9 @@
 #include "src/core/core.h"
 #include "src/core/memory.h"
 
+#ifndef INC_CORE_SOC
+#define INC_CORE_SOC
+
 namespace core {
 
 // Configuration data for this SoC. Requires core_count, mem_size_MB, and clock_speed_MHz.
@@ -28,3 +31,5 @@ public:
 };
 
 }
+
+#endif

@@ -1,5 +1,8 @@
 #include <cstdint>
 
+#ifndef INC_CORE_MEMORY_H
+#define INC_CORE_MEMORY_H
+
 namespace core {
 class Memory {
     uint8_t* mem_bytes;
@@ -23,4 +26,7 @@ public:
     // Store a byte at an arbitrary physical address.
     void store_byte(uint32_t phy_addr, uint8_t byte_val);
 };
+
 }
+
+#endif  // INC_CORE_MEMORY_H

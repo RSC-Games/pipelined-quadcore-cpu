@@ -1,6 +1,9 @@
 #include <cstdint>
 #include "src/core/mmu.h"
 
+#ifndef INC_CORE_CPU_H
+#define INC_CORE_CPU_H
+
 namespace core {
 
 // CPU Exception Vectors.
@@ -87,6 +90,21 @@ private:
     void CORE_execute_op();
     void CORE_write_back();
 
+    // Erase all uncommitted instructions from the instruction pipeline.
+    // Essential if a branch misprediction occurred.
+    void CORE_flush_pipeline();
+
+    // Predict the direction a branch will take.
+    void CORE_predict_branch();
+
+    // TODO: Add branch target predictor.
+    // NOTE: Branch target buffer required to prevent pipeline stalling immediately
+    // after branch fetch. Implementation details:
+    // Branch target buffer stores n entries.
+    // Entries are indexed by PC and contain the last resolved branch address for that
+    // instruction. If none exists, then stall the pipeline and store the target address
+    // when the instruction is decoded.
+
     uint32_t MMU_translate_addr(uint32_t vaddr);
 
     //void _empty  // NOP implemented as ADD_ACC r0, 0
@@ -134,3 +152,5 @@ private:
 };
 
 }
+
+#endif // INC_CORE_CPU_H

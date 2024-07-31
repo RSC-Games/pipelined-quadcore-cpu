@@ -1,6 +1,9 @@
 #include <cstdint>
 #include <vector>
 
+#ifndef INC_ISA_DECODE_H
+#define INC_ISA_DECODE_H
+
 namespace isa {
 
 // Instruction components.
@@ -15,3 +18,5 @@ DecodedInstruction* decode_instr(uint32_t instr) {
 }
 
 }
+
+#endif  // INC_ISA_DECODE_H

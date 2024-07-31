@@ -1,7 +1,7 @@
 #include "src/core/core.h"
 #include "src/soc.h"
 
-//#include "common/isa_decode.h"
+#include "common/isa_decode.h"
 
 namespace core {
 
