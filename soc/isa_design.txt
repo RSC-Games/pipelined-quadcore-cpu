@@ -88,7 +88,7 @@ Instruction set:
 ************************** NOTE: CURRENTLY USED 42/255 opcodes available in the 8-bit encoding. *************************
 
 CPU Pipeline:
-	5 Stage pipeline:
+	4 Stage pipeline:
 	- Instruction Fetch
 	- Instruction Decode
 	- Execute
@@ -105,6 +105,19 @@ Virtual Memory Address Space Layout:
 CPU Operation Modes:
 	P0 (Privilege level 0): Kernel mode; automatically entered on syscall/sysret.
 	P1 (Privilege level 1): User mode; applications run in this mode.
+
+CPU Branch predictor:
+	Features a full branch predictor / branch target buffer solution to avoid pipeline stalls.
+	Branch Predictor:
+		- 2 level adaptive (stores last 8 branches)
+		- On the execute stage of the pipeline, the branch history is left shifted by 1 bit and
+			the branch output of the current branch instruction is XOR'd in.
+
+		- In the fetch stage, if the input is a branch instruction, the direction the branch will go
+			is predicted from a unique 2 bit saturation counter for that branch instruction type.
+		- If the branch is predicted as taken, the PC of the branch will be used to look up the target.
+			If no entry exists (entry == nullptr), the pipeline fetch stage will stall until the instruction is decoded
+			and the target can be identified.
 
 CPU Exceptions (All NMI Interrupts) (All execute in kernel mode):
 	- LoadFault (Failure to load a value from a given address).
@@ -211,7 +224,6 @@ CPU Control Registers (CR_BASE=0x3F00) (Can only be accessed in kernel mode).
 MMU + MPU:
 	- Multi-level paging?
 	- This will require much more dev resources before it's ready. Currently the core is the only part ready.
-
 
 Testbed implementation SoC:
 	Has 4 CPU cores (ranging from 1 MHz to 512 MHz)

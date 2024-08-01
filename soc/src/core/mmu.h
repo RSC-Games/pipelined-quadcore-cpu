@@ -14,8 +14,8 @@ public:
     MMU(const MMU& other) = delete;
     ~MMU();
 
-    uint32_t load_word(uint32_t vaddr);
-    void store_word(uint32_t vaddr, uint32_t word);
+    inline uint32_t load_word(uint32_t vaddr);
+    inline void store_word(uint32_t vaddr, uint32_t word);
 };
 }
 

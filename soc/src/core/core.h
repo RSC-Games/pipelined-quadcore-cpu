@@ -95,7 +95,14 @@ private:
     void CORE_flush_pipeline();
 
     // Predict the direction a branch will take.
-    void CORE_predict_branch();
+    // NOTE: Branch prediction will be implemented via a 2-level predictor.
+    // The last 8 branches will be stored. Each execute phase for a branch, the branch
+    // history will be left shifted 1 bit, then a 1 or 0 will be XOR'd in depending
+    // on the actual result of the prediction.
+    // This value will be used to look up a 2 bit saturation counter value for the history
+    // of that branch pattern.
+    // Each branch instruction has its own saturation counter copy.
+    inline void CORE_predict_branch();
 
     // TODO: Add branch target predictor.
     // NOTE: Branch target buffer required to prevent pipeline stalling immediately
@@ -104,8 +111,9 @@ private:
     // Entries are indexed by PC and contain the last resolved branch address for that
     // instruction. If none exists, then stall the pipeline and store the target address
     // when the instruction is decoded.
+    inline uint32_t CORE_predict_branch_target();
 
-    uint32_t MMU_translate_addr(uint32_t vaddr);
+    inline uint32_t MMU_translate_addr(uint32_t vaddr);
 
     //void _empty  // NOP implemented as ADD_ACC r0, 0
     void op_add(int reg_src1, int reg_src2, int reg_dest);

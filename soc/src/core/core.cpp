@@ -28,8 +28,6 @@ void Core::CORE_set_clock_rate(uint32_t clock_rate_MHz) {
 }
 
 void Core::CORE_instr_fetch() {
-    //uint32_t i_phy_addr = this->MMU_translate_addr(this->pc);
-
     // TODO: Store the instruction for the next pipeline stage.
     uint32_t instruction = this->mmu->load_word(this->pc);
     // NOTE: DOES NOTHING!!!!
