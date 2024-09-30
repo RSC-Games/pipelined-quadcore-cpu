@@ -1,21 +1,21 @@
-#include "src/core/memory.h"
-#include "src/core/mmu.h"
-#include "src/util/logger.h"
+#include "core/memory.h"
+#include "core/mmu.h"
+#include "util/logger.h"
 
 namespace core {
 
-MMU::MMU(core::Memory* mem) {
-    this->phy_memory = mem;
+MMU::MMU() {
+    LOG_WARNING("No MMU initialization performed!");
 }
 
 MMU::~MMU() {
-    this->phy_memory = nullptr;
+    LOG_INFO("Destructor called; doing nothing.");
 }
 
-uint32_t MMU::load_word(uint32_t vaddr) {
+uint32_t MMU::tlb_translate(uint32_t vaddr) {
     // TODO: Add page table and virtual address translation.
-    LOG_WARNING("MMU not performing virtual address translation on load_word!");
-    return this->phy_memory->load_word(vaddr);
+    LOG_WARNING("READ: MMU not performing virtual address translation!");
+    return vaddr;
 }
 
 }

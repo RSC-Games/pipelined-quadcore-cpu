@@ -1,6 +1,8 @@
 #include <cstdlib>
-#include "src/core/memory.h"
-#include "src/core/core.h"
+#include "core/memory.h"
+#include "core/interrupts.h"
+
+#include "util/logger.h"
 
 namespace core {
 
@@ -15,9 +17,10 @@ Memory::~Memory() {
 }
 
 uint32_t Memory::load_word(uint32_t phy_addr) {
-    if (phy_addr % 4 != 0)
+    if (phy_addr % 4 != 0) {
         // Unaligned memory access. Fail hard here.
         throw core::INT_LOAD_STORE_ALIGNMENT_FAULT;
+    }
 
     if (phy_addr >= mem_size)
         // The requested address doesn't exist in physical memory.

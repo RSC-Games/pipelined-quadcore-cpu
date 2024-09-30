@@ -1,5 +1,5 @@
-#include "src/core/core.h"
-#include "src/core/memory.h"
+#include "core/core.h"
+#include "core/memory.h"
 
 #ifndef INC_CORE_SOC
 #define INC_CORE_SOC
@@ -22,10 +22,12 @@ class SoC {
     core::Memory* memory;
 
 public:
-    SoC(const core::SoCConfigurationRing &config_ring);
+    SoC(const core::SoCConfigurationRing& config_ring);
     SoC(const SoC& other) = delete;
     SoC(SoC&& other) = delete;
     ~SoC();
+
+    void simulate();
 
     inline core::Memory* get_memory();
 };

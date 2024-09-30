@@ -1,34 +1,11 @@
 #include <cstdint>
-#include "src/core/mmu.h"
+#include "core/mmu.h"
+#include "core/memory.h"
 
 #ifndef INC_CORE_CPU_H
 #define INC_CORE_CPU_H
 
 namespace core {
-
-// CPU Exception Vectors.
-const uint32_t INT_LOAD_FAULT = 0;  // Memory Fault
-const uint32_t INT_STORE_FAULT = 4;  // Memory Fault
-const uint32_t INT_PAGE_FAULT = 8;  // MMU Fault
-const uint32_t INT_INVALID_PAGE_FAULT = 12;  // MMU Fault.
-const uint32_t INT_LOAD_STORE_ALIGNMENT_FAULT = 16;  // Memory Fault.
-const uint32_t INT_INVALID_OPCODE_FAULT = 20;  // CPU Fault.
-const uint32_t INT_INSTRUCTION_FETCH_FAULT = 24;  // Memory Fault.
-const uint32_t INT_INSTR_FETCH_ALIGNMENT_FAULT = 28;  // Memory Fault.
-const uint32_t INT_ZERO_DIVISION_FAULT = 32;  // CPU Fault.
-const uint32_t INT_DOUBLE_FAULT = 36;  // CPU Fault.
-
-// CPU Interrupt Vectors.
-const uint32_t INT_WDT_EXPIRED = 40;
-const uint32_t INT_IRQL0 = 44;
-const uint32_t INT_IRQL1 = 48;
-const uint32_t INT_IRQL2 = 52;
-const uint32_t INT_IRQL3 = 56;
-const uint32_t INT_OS_TIMER_TRIGGER = 60;
-const uint32_t TIM0_COMP = 64;
-const uint32_t TIM1_COMP = 68;
-const uint32_t TIM2_COMP = 72;
-const uint32_t TIM3_COMP = 76;
 
 // Register names and indexes.
 const int REG_X0 = 0;
@@ -66,6 +43,7 @@ class Core {
     uint32_t clock_rate = 0;  // Current CPU clock rate.
     bool halted = true;
 
+    core::Memory* memory;
     core::MMU* mmu;
     // TODO: Memory Mangement Unit + Memory Protection Unit.
     // TODO: Manage pipeline.
@@ -80,8 +58,8 @@ public:
     void CORE_set_halt_state(bool halt);
     void CORE_set_clock_rate(uint32_t clock_rate_MHz);
 
-    // TODO: Implement pipeline and instruction decoder.
-    void CORE_run_pipeline();
+    // Simulate the core and all core subsystems.
+    void simulate();
 
 private:
     // TODO: WHERE do I put these?
@@ -89,6 +67,12 @@ private:
     void CORE_decode_instr();
     void CORE_execute_op();
     void CORE_write_back();
+
+    // TODO: Implement pipeline and instruction decoder.
+    void CORE_run_pipeline();
+
+    // For debugging purposes. Print the exception type and PC.
+    void print_exception_frame(uint32_t exception);
 
     // Erase all uncommitted instructions from the instruction pipeline.
     // Essential if a branch misprediction occurred.

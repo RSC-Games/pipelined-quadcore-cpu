@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <stddef.h>
 
 #ifndef INC_CORE_MEMORY_H
 #define INC_CORE_MEMORY_H
@@ -15,16 +16,17 @@ public:
     ~Memory();
 
     // Load memory from a provided aligned physical address.
-    inline uint32_t load_word(uint32_t phy_addr);
+    // TODO: Inline?
+    uint32_t load_word(uint32_t phy_addr);
 
     // Store a word at a provided aligned physical address.
-    inline void store_word(uint32_t phy_addr, uint32_t word);
+    void store_word(uint32_t phy_addr, uint32_t word);
 
     // Load a byte at an arbitrary physical address.
-    inline uint8_t load_byte(uint32_t phy_addr);
+    uint8_t load_byte(uint32_t phy_addr);
 
     // Store a byte at an arbitrary physical address.
-    inline void store_byte(uint32_t phy_addr, uint8_t byte_val);
+    void store_byte(uint32_t phy_addr, uint8_t byte_val);
 };
 
 }

@@ -132,6 +132,20 @@ CPU Exceptions (All NMI Interrupts) (All execute in kernel mode):
 	- DoubleFault (An exception occurs when trying to load a previous exception handler).
 	- (No IVT allocation) TripleFault (Another exception occurs when trying to load the DoubleFault handler).
 
+CPU Exceptions (Developer guide):
+	- LoadFault:
+		- Caused by an illegal read from physical memory outside of any mmapped addresses (Only seen before MMU is up).
+	- StoreFault:
+		- Caused by an illegal write to physical memory outside of any mmapped addresses (Only seen before MMU is up).
+	- PageFault:
+		- Caused by an access to a page that does not exist in memory or was not mmapped (no page table entry).
+	- InvalidPageFault:
+		- The memory mapped page accessed does not exist in readable memory.
+	- LoadStoreAlignmentFault:
+		- A word-based load/store was not done on a 32-bit aligned address.
+	- InvalidOpcodeFault:
+		- Illegal instruction. The instruction read is not executable.
+
 CPU Interrupts: (Exceptions are literally just interrupts but indicate an error) (All execute in kernel mode).
 	- WDT_EXPIRED (NMI) (The watch dog timer expired and fired an interrupt prior to reset).
 	- IRQL0 (Interrupt Request Line 0 was fired and IRQL0 is defined in the Control Registers).

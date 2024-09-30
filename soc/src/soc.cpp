@@ -1,6 +1,6 @@
 #include <iostream>
-#include "src/soc.h"
-#include "src/util/logger.h"
+#include "soc.h"
+#include "util/logger.h"
 
 namespace core {
 
@@ -41,6 +41,13 @@ core::SoC::~SoC() {
 
     delete this->cores;
     delete this->memory;
+}
+
+void core::SoC::simulate() {
+    // TODO: Spawn other threads to simulate the other cores.
+    this->cores[0]->simulate();
+
+    // TODO: Figure out what else this needs to do?
 }
 
 inline core::Memory* core::SoC::get_memory() {
