@@ -2,7 +2,7 @@ INSTRUCTION SET REVISION v1.0
 
 CPU Type: Scalar Pipelined 32 bit RISC CPU.
 Features: 
-	MMU + MPU with full paging support; W^X support. Control is mostly handled in hardware and load/store is hidden to the CPU.
+	MMU + MPU with full paging support; W^X support. Control is mostly handled in hardware and address translation is transparent to the CPU (hardware page walker).
 	Has 16 general purpose registers (3 of them are ABI reserved)
 	No out-of-order optimizations or no superscalar optimizations; pipelining implemented.
 	1T memory access.
@@ -11,14 +11,16 @@ Features:
 
 What is RISC? What is the alternative?
 	CISC: (Complex Instruction Set Computing)
-	- ADD DWORD_PTR[0xFF] DWORD_PTR[0xFA] r1
+	- Add 2 arbitrary numbers from memory and store the result in R1.
+		ADD DWORD_PTR[0xFF] DWORD_PTR[0xFA] r1
 
 	RISC: (Reduced Instruction Set Computing)
-	- MOV r0 0xFF
-	- LDW r1 r0
-	- MOV r0 0xFA
-	- LDW r2 r0
-	- ADD r1 r2 r1
+	- Add 2 arbitrary numbers from memory and store the result in R1.
+		MOV r0 0xFF
+		LDW r1 r0
+		MOV r0 0xFA
+		LDW r2 r0
+		ADD r1 r2 r1
 
 Register file:
 	Has 16 registers (numbered X0-X12 and XRV, XFP, XSP).
@@ -67,10 +69,10 @@ Instruction set:
 0b00010101 - OR <SRC register 1> <SRC register 2> <DEST register> (Perform bitwise OR on two registers and store the result in dest)
 0b00010110 - XOR <SRC register 1> <SRC register 2> <DEST register> (Perform bitwise XOR on two registers and store the result in dest)
 0b00010111 - NOT <SRC register> <DEST register> (Perform bitwise NOT on the source register)
-0b00011000 - LSH <SRC register/DEST register> <SHIFT register> (Left shifts the source register by a value in the shift register)
-0b00011001 - LSH_IMM <SRC register> <20 bit immediate> (Left shifts the provided register by an immediate)
-0b00011010 - RSH <SRC register 1> <SRC register 2> (Right shifts the provided register by a value in another register)
-0b00011011 - RSH_IMM <SRC register> <20 bit immediate> (Right shifts the provided register by an immediate)
+0b00011000 - LSH <OPERAND register> <SHIFT register> (Left shifts the source register by a value in the shift register)
+0b00011001 - LSH_IMM <OPERAND register> <20 bit immediate> (Left shifts the provided register by an immediate)
+0b00011010 - RSH <OPERNAD register> <SHIFT register> (Right shifts the provided register by a value in another register)
+0b00011011 - RSH_IMM <OPERAND register> <20 bit immediate> (Right shifts the provided register by an immediate)
 0b00011100 - JMP_IMM <ADDRESS register> <20 bit immediate> (For small code sizes allows extremely fast jumps within a megabyte above the provided address register)
 0b00011101 - JMP_REL <ADDRESS register> <OFFSET register> (Jump to an offset relative to the provided address register)
 0b00011110 - JMP <ADDRESS register> (Jump to an absolute address in the memory space from the provided register)
@@ -81,10 +83,11 @@ Instruction set:
 0b00100011 - RET (Pop the PC from the stack)
 0b00100100 - PUSH <SRC register> (Push a provided register to the stack)
 0b00100101 - POP <DEST register> (Pop the entry on the stack into the provided register)
-0b00100110 - HLT (Halt the CPU. May be unhalted by any active interrupts)
+0b00100110 - $P0 ONLY$ HLT (Halt the CPU. May be unhalted by any active interrupts)
 0b00100111 - SYSCALL <ID register> (Push the PC to the stack, switch to Kernel mode, then jump to the registered syscall handler)
 0b00101000 - $P0 ONLY$ - SYSRET (Switch to User mode and pop the PC from the stack)
 0b00101001 - $P0 ONLY$ - SYSTARGET <ADDRESS handler_address> (Register a system call handler at the provided address in kernel address space)
+0b00101010 - CPUID <DEST register> (Get the 32 bit CPU ID info and store it in the dest register)
 ************************** NOTE: CURRENTLY USED 42/255 opcodes available in the 8-bit encoding. *************************
 
 CPU Pipeline:
@@ -116,8 +119,8 @@ CPU Branch predictor:
 		- In the fetch stage, if the input is a branch instruction, the direction the branch will go
 			is predicted from a unique 2 bit saturation counter for that branch instruction type.
 		- If the branch is predicted as taken, the PC of the branch will be used to look up the target.
-			If no entry exists (entry == nullptr), the pipeline fetch stage will stall until the instruction is decoded
-			and the target can be identified.
+			If no entry exists (entry == nullptr), the pipeline fetch stage will stall until the instruction 
+			is decoded and the target can be identified.
 
 CPU Exceptions (All NMI Interrupts) (All execute in kernel mode):
 	- LoadFault (Failure to load a value from a given address).

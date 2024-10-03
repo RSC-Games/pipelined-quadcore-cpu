@@ -26,8 +26,7 @@ uint32_t Memory::load_word(uint32_t phy_addr) {
         // The requested address doesn't exist in physical memory.
         throw core::INT_LOAD_FAULT;
 
-    // Fun C++ trickery here. We're gonna manually calculate the offset and dereference that offset
-    // to load a 32 bit word in one operation.
+    // Read an int from an arbitrary offset in one go.
     uint32_t* p_addr = reinterpret_cast<uint32_t*>(this->mem_bytes) + phy_addr;
     return *p_addr;
 }

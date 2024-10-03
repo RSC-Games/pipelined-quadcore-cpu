@@ -4,6 +4,9 @@
 #ifndef INC_ISA_DECODE_H
 #define INC_ISA_DECODE_H
 
+// TODO: Add offset register support to jump/load/call instructions.
+// TODO: SYSTARGET should really just have an IDT entry.
+
 namespace isa {
 
 // Instruction components.
