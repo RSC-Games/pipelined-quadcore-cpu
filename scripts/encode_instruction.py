@@ -1,16 +1,18 @@
-import include.isa
-import include.optypes
-
+from include import isa, optypes
+import binascii
 import sys
 
 
-def main(argv: list[str]) -> int:
-    instr = input("Enter instruction to encode (ENCODED IN ASSEMBLY). For help, please "
-                  + "consult the CPU ISA documentation.\n> ")
+class InstructionComponent():
+    def __init__(self, type: int, data):
+        self.type = type
+        self.data = data
 
-    encoded = encode_instr(instr)
-    print(encoded)
-    return 0
+
+class Instruction():
+    def __init__(self, instr: str, opcode: int):
+        self.instr = instr
+        self.opcode = opcode
 
 
 def encode_instr(instr: str) -> int:
@@ -30,15 +32,16 @@ def encode_instr(instr: str) -> int:
 
     # Determine operand types
     op_types = instr_get_operand_types(comps)
+    instr_opcode = encode_instr_opcode(instr, op_types)
 
     return 0
 
 
-def instr_get_operand_types(comps: list[str]):
-    return [get_comp_type(comp) for comp in comps]
+def instr_get_operand_types(comps: list[str]) -> list[InstructionComponent]:
+    return [get_comp_type(comp) for comp in comps[1:]]
 
 
-def get_comp_type(comp: str) -> str:
+def get_comp_type(comp: str) -> InstructionComponent:
     """
     Identify the type of an instruction component. Can be a register, immediate,
     label (not recognized currently), or conditional code.
@@ -47,7 +50,38 @@ def get_comp_type(comp: str) -> str:
     :return type: Operand type.
     """
 
+    # Is this a register ID or conditional?
+    if comp in optypes.REGS_LIST:
+        print(f"Identified register {comp}")
+        return InstructionComponent(optypes.OPTYPE_REGISTER, comp)
+    elif comp in optypes.COND_LIST:
+        print(f"Identified conditional {comp}")
+        return InstructionComponent(optypes.OPTYPE_CONDITIONAL, comp)
     
+    # Is this a hexadecimal value?
+    potential_hex = comp[2:]
+
+    try:
+        _ = binascii.unhexlify(potential_hex)
+        print(f"Identified address {comp}")
+        return InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp)
+    except:
+        print(f"ERROR: Unrecognized component {comp}")
+        raise RuntimeError("Unrecognized component.")
+    
+
+def encode_instr_opcode(instr: str, optypes: list[InstructionComponent]) -> Instruction:
+    # TODO: Take the instr and optypes and get the instruction opcode.
+    pass #opcode = isa.
+    
+
+def main(argv: list[str]) -> int:
+    instr = input("Enter instruction to encode (ENCODED IN ASSEMBLY). For help, please "
+                  + "consult the CPU ISA documentation.\n> ")
+
+    encoded = encode_instr(instr)
+    print(encoded)
+    return 0
 
 
 if __name__ == "__main__":

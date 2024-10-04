@@ -46,5 +46,6 @@
         "streambuf": "cpp",
         "typeinfo": "cpp",
         "cstdarg": "cpp"
-    }
+    },
+    "python.analysis.typeCheckingMode": "basic"
 }
