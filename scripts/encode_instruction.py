@@ -72,6 +72,8 @@ def get_comp_type(comp: str) -> InstructionComponent:
 
 def encode_instr_opcode(instr: str, optypes: list[InstructionComponent]) -> Instruction:
     # TODO: Take the instr and optypes and get the instruction opcode.
+    # TODO: If no instruction opcode is found then abort.
+    # TODO: Add new optypes for JMPC_Z and JMPC (so they aren't confused).
     pass #opcode = isa.
     
 
