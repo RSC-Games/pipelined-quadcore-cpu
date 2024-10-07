@@ -117,7 +117,7 @@ ADD_FP			0b00001001			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 SUB_FP			0b00001010			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 MUL_FP			0b00001011 			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 DIV_FP			0b00001100 			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
-MOV				0b00001101 			SREG/DREG(8b)	0x0				0x0			0bNNNNNNNN SSSSDDDD -------- --------
+MOV				0b00001101			SREG/DREG(8b)	0x0				0x0			0bNNNNNNNN SSSSDDDD -------- --------
 MOV_IMM 		0b00001110 			DREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN DDDDIIII IIIIIIII IIIIIIII
 MOV_IMM_HIGH	0b00001111			DREG(4b)/empty	IMM(8b)			IMM(8b)		0bNNNNNNNN DDDD---- IIIIIIII IIIIIIII
 LDB				0b00010000 			AREG/DREG(8b)	IMM(8b)			IMM(8b)		0bNNNNNNNN AAAADDDD IIIIIIII IIIIIIII
@@ -132,14 +132,14 @@ LSH 			0b00011000     		OPREG/SHREG(8b)	0x0				0x0			0bNNNNNNNN PPPPHHHH -------
 LSH_IMM 		0b00011001     		OPREG/IMM(4b)	IMM(8b)			IMM(8b)     0bNNNNNNNN PPPPIIII IIIIIIII IIIIIIII
 RSH 			0b00011010     		OPREG/SHREG(8b)	0x0				0x0			0bNNNNNNNN PPPPHHHH -------- --------
 RSH_IMM 		0b00011011     		OPREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN PPPPIIII IIIIIIII IIIIIIII
-JMP_IM 			0b00011100     		AREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN AAAAIIII IIIIIIII IIIIIIII
+JMP_IMM			0b00011100     		AREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN AAAAIIII IIIIIIII IIIIIIII
 JMP_REL 		0b00011101     		AREG/OFREG(8b)	0x0				0x0			0bNNNNNNNN AAAAFFFF -------- --------
 JMP 			0b00011110     		AREG(4b)/empty	0x0				0x0			0bNNNNNNNN AAAA---- -------- --------
 JMPC 			0b00011111     		CC(4b)/OPREG1	OPREG2/AREG		0x0			0bNNNNNNNN -CCCPPPP PPPPAAAA --------
 JMPC_Z 			0b00100000     		CC(4b)/OPREG	AREG(4b)		0x0			0bNNNNNNNN ---CPPPP AAAA---- --------
 CALL_IMM 		0b00100001     		AREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN AAAAIIII IIIIIIII IIIIIIII
 CALL 			0b00100010     		AREG/OFREG		0x0				0x0			0bNNNNNNNN AAAAFFFF -------- --------
-RET 			0b00100011     		0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
+RET 			0b00100011			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 PUSH 			0b00100100     		SREG(4b)/empty	0x0				0x0			0bNNNNNNNN SSSS---- -------- --------
 POP 			0b00100101     		DREG(4b)/empty	0x0				0x0			0bNNNNNNNN DDDD---- -------- --------
 HLT 			0b00100110 			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
@@ -147,6 +147,22 @@ SYSCALL 		0b00100111     		IDREG(4b)/empty	0x0				0x0			0bNNNNNNNN XXXX---- ----
 SYSRET 			0b00101000			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 SYSTARGET 		0b00101001 			AREG(4b)/empty	0x0				0x0			0bNNNNNNNN AAAA---- -------- --------
 CPUID 			0b00101010     		DREG(4b)/empty	0x0				0x0			0bNNNNNNNN DDDD---- -------- --------
+
+Instruction decode types:
+	INSTR_ONLY: (no operands).
+		- ADD_FP, SUB_FP, MUL_FP, DIV_FP, RET, HLT, SYSRET
+	INSTR_4REG: (4 register operands; technically just 4-bit operands at the hw level).
+		- JMPC
+	INSTR_3REG: (3 register operands).
+		- ADD, SUB, MUL, DIV, AND, OR, XOR, JMPC_Z
+	INSTR_2REG: (2 register operands).
+	    - ADD_ACC, SUB_ACC, MUL_ACC, DIV_ACC, MOV, NOT, LSH, RSH, JMP_REL, CALL
+	INSTR_1REG: (1 register operand).
+		- JMP, PUSH, POP, SYSCALL, SYSTARGET, CPUID
+	INSTR_REG_IMM: (1 register, 1 20-bit immediate).
+		- MOV_IMM, LSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
+	INSTR_2REG_IMM: (2 register, 1 16-bit immediate).
+		- LDB, STB, LD, ST, MOV_IMM_HIGH
 
 
 CPU Pipeline:
