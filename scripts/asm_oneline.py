@@ -3,25 +3,6 @@ import binascii
 import sys
 
 
-class InstructionComponent():
-    def __init__(self, type: int, orig_val, encoded: int):
-        self.type = type
-        self.orig_val = orig_val
-        self.encoded = encoded
-
-    def __repr__(self):
-        return f"[type: {optypes.REVERSE_OP_LUT[self.type]}, val: {self.orig_val}, hex: {hex(self.encoded)}]"
-
-
-class Instruction():
-    def __init__(self, instr: str, opcode: int):
-        self.instr = instr
-        self.opcode = opcode
-
-    def __repr__(self):
-        return f"[{self.instr}, 0x{binascii.hexlify(self.opcode.to_bytes(4, 'little'))}]"
-
-
 def encode_instr(instr: str) -> int:
     """
     Encode a string-based instruction and return a 32 bit unsigned integer
@@ -65,14 +46,14 @@ def encode_instr(instr: str) -> int:
     return isa.encode_word(instr_opcode, op_types)
 
 
-def instr_get_operand_types(comps: list[str]) -> list[InstructionComponent] | None:
+def instr_get_operand_types(comps: list[str]) -> list[isa.InstructionComponent] | None:
     try:
         return [get_comp_type(comp) for comp in comps[1:]]
     except RuntimeError:
         return None
 
 
-def get_comp_type(comp: str) -> InstructionComponent:
+def get_comp_type(comp: str) -> isa.InstructionComponent:
     """
     Identify the type of an instruction component. Can be a register, immediate,
     label (not recognized currently), or conditional code.
@@ -84,10 +65,10 @@ def get_comp_type(comp: str) -> InstructionComponent:
     # Is this a register ID or conditional?
     if comp in optypes.REGS_LIST:
         #print(f"Identified register {comp}")
-        return InstructionComponent(optypes.OPTYPE_REGISTER, comp, optypes.REGS_LIST[comp])
+        return isa.InstructionComponent(optypes.OPTYPE_REGISTER, comp, optypes.REGS_LIST[comp])
     elif comp in optypes.COND_LIST:
         #print(f"Identified conditional {comp}")
-        return InstructionComponent(optypes.OPTYPE_CONDITIONAL, comp, optypes.COND_LIST[comp])
+        return isa.InstructionComponent(optypes.OPTYPE_CONDITIONAL, comp, optypes.COND_LIST[comp])
     
     # TODO: Later add support for labels (in actual assembler)
     # Is this a hexadecimal value?
@@ -100,13 +81,13 @@ def get_comp_type(comp: str) -> InstructionComponent:
     try:
         val = binascii.unhexlify(potential_hex)
         #print(f"Identified address {comp}")
-        return InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int.from_bytes(val, 'big', signed=False))
+        return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int.from_bytes(val, 'big', signed=False))
     except:
         print(f"ERROR: Illegal hex value: {comp}")
         raise RuntimeError("Unrecognized component.")
     
 
-def encode_instr_opcode(instr: str, optypes: list[InstructionComponent]) -> Instruction | None:
+def encode_instr_opcode(instr: str, optypes: list[isa.InstructionComponent]) -> isa.Instruction | None:
     #print(f"instr name {instr} optypes {optypes}")
     attribs = [instr]
     attribs.extend([op.type for op in optypes])  # type: ignore
@@ -117,26 +98,26 @@ def encode_instr_opcode(instr: str, optypes: list[InstructionComponent]) -> Inst
         return None
 
     opcode = isa.INSTRUCTION_LUT[name]
-
-    #print(f"got instruction name {name}, opcode {bin(opcode)}")
-    
-    return Instruction(name, opcode)
+    return isa.Instruction(name, opcode)
     
 
 def main(argv: list[str]) -> int:
-    instr = input("Enter instruction to encode (ENCODED IN ASSEMBLY). For help, please "
-                  + "consult the CPU ISA documentation.\n> ")
+    while True:
+        instr = input("Enter instruction to encode (ENCODED IN ASSEMBLY). For help, please "
+                    + "consult the CPU ISA documentation.\n> ")
 
-    encoded = encode_instr(instr)
+        encoded = encode_instr(instr)
 
-    if encoded == -1:
-        return -1
-    
-    # Re-encode as little endian for display.
-    dec = int.to_bytes(encoded, 4, byteorder='little', signed=False)
-    encoded = int.from_bytes(dec, 'big', signed=False)
+        if encoded == -1:
+            print()
+            continue
+        
+        # Re-encode as little endian for display.
+        dec = int.to_bytes(encoded, 4, byteorder='little', signed=False)
+        encoded = int.from_bytes(dec, 'big', signed=False)
 
-    print(f"Encoded result (little endian hex): {hex(encoded)}")
+        print(f"Encoded result (little endian hex): {hex(encoded)}\n")
+
     return 0
 
 

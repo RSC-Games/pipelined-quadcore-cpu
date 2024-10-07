@@ -1,5 +1,6 @@
 from .optypes import OPTYPE_CONDITIONAL, OPTYPE_IMMEDIATE, OPTYPE_REGISTER
-from .optypes import REVERSE_OP_LUT
+from . import optypes
+import binascii
 
 ISA_VERSION_MAJOR = 1
 ISA_VERSION_MINOR = 0
@@ -99,6 +100,24 @@ INSTR_REENCODE_LUT = {
     "nop": ("lsh", "X0", "0x00")
 }
 
+class InstructionComponent():
+    def __init__(self, type: int, orig_val, encoded: int):
+        self.type = type
+        self.orig_val = orig_val
+        self.encoded = encoded
+
+    def __repr__(self):
+        return f"[type: {optypes.REVERSE_OP_LUT[self.type]}, val: {self.orig_val}, hex: {hex(self.encoded)}]"
+
+
+class Instruction():
+    def __init__(self, instr: str, opcode: int):
+        self.instr = instr
+        self.opcode = opcode
+
+    def __repr__(self):
+        return f"[{self.instr}, 0x{binascii.hexlify(self.opcode.to_bytes(4, 'little'))}]"
+
 
 def instruction_def_exists(instr_name: str) -> bool:
     valid_names = [name[0] for name in INSTR_ALIAS_LUT]
@@ -114,12 +133,12 @@ def print_instruction_entries(instr_name: str) -> None:
 
 def _entry_as_str(entry: tuple) -> str:
     out_str = entry[0]
-    ops = " ".join([REVERSE_OP_LUT[op] for op in entry[1:]])
+    ops = " ".join([optypes.REVERSE_OP_LUT[op] for op in entry[1:]])
     return f"{out_str} {ops}"
 
 
 def operands_as_str(operands: list) -> str:
-    return ", ".join([REVERSE_OP_LUT[op.type] for op in operands])
+    return ", ".join([optypes.REVERSE_OP_LUT[op.type] for op in operands])
 
 
 def _encode_instr_only(instr) -> int:
