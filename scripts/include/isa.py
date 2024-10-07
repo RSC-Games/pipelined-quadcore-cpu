@@ -49,7 +49,8 @@ INSTRUCTION_LUT = {
     "cpuid": 0b00101010         # CPUID DEST_REG
 }
 
-INSTR_TYPE_LUT = {
+INSTR_ALIAS_LUT = {
+    ("nop",): "lsh",                                                             # NOP                                                           
     ("add", OPTYPE_REGISTER, OPTYPE_REGISTER, OPTYPE_REGISTER): "add",          # ADD SRC_REG1 SRC_REG2 DEST_REG
     ("add", OPTYPE_REGISTER, OPTYPE_REGISTER): "add_acc",                       # ADD SRC_REG1/DEST_REG SRC_REG2 (add accumulate)
     ("sub", OPTYPE_REGISTER, OPTYPE_REGISTER, OPTYPE_REGISTER): "sub",          # SUB SRC_REG1 SRC_REG2 DEST_REG
@@ -93,3 +94,6 @@ INSTR_TYPE_LUT = {
     ("systarget", OPTYPE_REGISTER): "systarget",    # DEPRECATED DEPRECATED #   # SYSTARGET HANDLER_ADDRESS_REG
     ("cpuid", OPTYPE_REGISTER): "cpuid"                                         # CPUID DEST_REG
 }
+
+def encode_word():
+    pass

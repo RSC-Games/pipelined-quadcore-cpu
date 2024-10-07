@@ -8,11 +8,17 @@ class InstructionComponent():
         self.type = type
         self.data = data
 
+    def __repr__(self):
+        return f"[type: {optypes.REVERSE_OP_LUT[self.type]}, data: {self.data}]"
+
 
 class Instruction():
     def __init__(self, instr: str, opcode: int):
         self.instr = instr
         self.opcode = opcode
+
+    def __repr__(self):
+        return f"[{self.instr}, 0x{binascii.hexlify(self.opcode.to_bytes(4, 'little'))}]"
 
 
 def encode_instr(instr: str) -> int:
@@ -28,11 +34,15 @@ def encode_instr(instr: str) -> int:
     instr = instr.split(";")[0].strip()
     
     comps = instr.split(" ")
+    instr_name = comps[0].lower()
     print(comps)
 
     # Determine operand types
     op_types = instr_get_operand_types(comps)
-    instr_opcode = encode_instr_opcode(instr, op_types)
+    instr_opcode = encode_instr_opcode(instr_name, op_types)
+
+    # Encoded in little endian form.
+    word = isa.encode_word()
 
     return 0
 
@@ -74,7 +84,17 @@ def encode_instr_opcode(instr: str, optypes: list[InstructionComponent]) -> Inst
     # TODO: Take the instr and optypes and get the instruction opcode.
     # TODO: If no instruction opcode is found then abort.
     # TODO: Add new optypes for JMPC_Z and JMPC (so they aren't confused).
-    pass #opcode = isa.
+
+    print(f"instr name {instr} optypes {optypes}")
+    attribs = [instr]
+    attribs.extend([op.type for op in optypes])  # type: ignore
+
+    name = isa.INSTR_ALIAS_LUT[tuple(attribs)]  # type: ignore
+    opcode = isa.INSTRUCTION_LUT[name]
+
+    print(f"got instruction name {name}, opcode {bin(opcode)}")
+    
+    return Instruction(name, opcode)
     
 
 def main(argv: list[str]) -> int:
