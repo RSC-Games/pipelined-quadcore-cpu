@@ -27,6 +27,7 @@ INSTRUCTION_LUT = {
     "mov_ext": 0b00010111,      # MOV DEST_EXT_REG SRC_REG
     "mov_gp": 0b00011000,       # MOV DEST_REG SRC_EXT_REG
     "mov_ext2": 0b00011001,     # MOV DEST_EXT_REG SRC_EXT_REG
+    "mov_ext_imm": 0b00011010,  # MOV DEST_EXT_REG IMM_20_BIT
 
     "ldb": 0b00100000,          # LDB DEST_REG BASE_ADDR_REG OFFSET_REG
     "stb": 0b00100001,          # STB SRC_REG BASE_ADDR_REG OFFSET_REG
@@ -78,6 +79,7 @@ INSTR_ALIAS_LUT = {
     ("mov", OPTYPE_REGISTER_EXT, OPTYPE_REGISTER_GP): "mov_ext",
     ("mov", OPTYPE_REGISTER_GP, OPTYPE_REGISTER_EXT): "mov_gp",
     ("mov", OPTYPE_REGISTER_EXT, OPTYPE_REGISTER_EXT): "mov_ext2",
+    ("mov", OPTYPE_REGISTER_EXT, OPTYPE_IMMEDIATE): "mov_ext_imm",
 
     ("ldb", OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "ldb",
     ("stb", OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "stb",
@@ -210,7 +212,6 @@ def _encode_instr_reg_imm(instr, reg, imm_20b) -> int:
         log.print_warning("Immediate too large; truncating to 20 bits.")
 
     word |= (imm_20b.encoded & 0xFFFFF)
-    print(hex(word & 0xFFFFF))
     return word
 
 
@@ -273,6 +274,7 @@ def encode_word(instr, operands: list) -> int:
         "mov_ext": _encode_instr_2reg,      # MOV DEST_EXT_REG SRC_REG
         "mov_gp": _encode_instr_2reg,       # MOV DEST_REG SRC_EXT_REG
         "mov_ext2": _encode_instr_2reg,     # MOV DEST_EXT_REG SRC_EXT_REG
+        "mov_ext_imm": _encode_instr_reg_imm, # MOV DEST_EXT_REG IMM_20_BIT
 
         "ldb": _encode_instr_3reg,          # LDB DEST_REG BASE_ADDR_REG OFFSET_REG
         "stb": _encode_instr_3reg,          # STB SRC_REG BASE_ADDR_REG OFFSET_REG

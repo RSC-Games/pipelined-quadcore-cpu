@@ -71,6 +71,7 @@ Instruction set:
 0b00010111 - MOV_EXT <DEST EXT register> <SRC GP register>  (Move one general-purpose register value to an extended register).
 0b00011000 - MOV_GP <DEST GP register> <SRC EXT register> (Move one extended register value to a general-purpose register).
 0b00011001 - MOV_EXT2 <DEST EXT register> <SRC EXT register> (Move one extended register value to another extended register).
+0b00011010 - MOV_EXT_IMM <DEST EXT register> <20 bit immediate> (Move an immeidate into an extended register).
 0b0001XXXX - empty
 0b00100000 - LDB <DEST register> <BASE_ADDR register> <OFFSET register> (Load a byte from memory at the address register value, left shift it the given amount, then store it into the given register, overwriting all bits present at that offset. Must be byte aligned)
 0b00100001 - STB <SRC register> <BASE_ADDR register> <OFFSET register> (Store a byte to memory at the address register value. Right shift the byte, keep only the lowest byte, and write it to memory.)
@@ -95,7 +96,6 @@ Instruction set:
 0b00111100 - POP <DEST register> (Pop the entry on the stack into the provided register)
 0b00111101 - PUSH_EXT <SRC EXT register> (Push an extended register to the stack)
 0b00111110 - POP_EXT <DEST EXT register> (Pop the entry on the stack into the extended register)
-0b00111111 - empty
 0b01000000 - SYSCALL <ID register> (Push the PC to the stack, switch to Kernel mode, then jump to the registered syscall handler)
 0b01000001 - $P0 ONLY$ - SYSRET (Switch to User mode and pop the PC from the stack)
 0b01000010 - $P0 ONLY$ - HLT (Halt the CPU. May be unhalted by any active interrupts)

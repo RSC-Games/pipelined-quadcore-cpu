@@ -116,6 +116,7 @@ def decode_word(instr_name: str, instr: int) -> list[int]:
         "mov_ext": _decode_instr_2reg,      # MOV DEST_EXT_REG SRC_REG
         "mov_gp": _decode_instr_2reg,       # MOV DEST_REG SRC_EXT_REG
         "mov_ext2": _decode_instr_2reg,     # MOV DEST_EXT_REG SRC_EXT_REG
+        "mov_ext_imm": _decode_instr_reg_imm, # MOV DEST_EXT_REG IMM_20_BIT
 
         "ldb": _decode_instr_3reg,          # LDB DEST_REG BASE_ADDR_REG OFFSET_REG
         "stb": _decode_instr_3reg,          # STB SRC_REG BASE_ADDR_REG OFFSET_REG
@@ -148,7 +149,6 @@ def decode_word(instr_name: str, instr: int) -> list[int]:
     }
 
     decoder = decoder_lookup[instr_name]
-    print([bin(v) for v in decoder(instr)])
     return decoder(instr)
 
 
