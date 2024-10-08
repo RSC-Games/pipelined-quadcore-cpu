@@ -12,8 +12,15 @@ REVERSE_OP_LUT = {
     OPTYPE_ZERO_CONDITIONAL: "[ZR | NZ]"
 }
 
+# Encode
 GP_REGS_LIST = {f"X{i}": i for i in range(16)}
 GP_REGS_LIST.update({"XRV": 13, "XFP": 14, "XSP": 15})
 EXTENDED_REGS_LIST = {f"E{i}": i for i in range(16)}
 COMP_COND_LIST = {"EQ": 0, "LT": 1, "GT": 2, "LE": 3, "GE": 4, "NE": 5}
 ZERO_COND_LIST = {"ZR": 0, "NZ": 1}
+
+# Decode
+REVERSE_GP_REGS = {GP_REGS_LIST[k]: k for k in GP_REGS_LIST}
+REVERSE_EXT_REGS = {EXTENDED_REGS_LIST[k]: k for k in EXTENDED_REGS_LIST}
+REVERSE_COMP_COND = {COMP_COND_LIST[k]: k for k in COMP_COND_LIST}
+REVERSE_COMP_ZERO = {ZERO_COND_LIST[k]: k for k in ZERO_COND_LIST}

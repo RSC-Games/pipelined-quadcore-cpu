@@ -166,7 +166,7 @@ def _encode_instr_5reg(instr, reg0, reg1, reg2, reg3, reg4) -> int:
     word |= (reg1.encoded & 0xF) << 16
     word |= (reg2.encoded & 0xF) << 12
     word |= (reg3.encoded & 0xF) << 8
-    word |= (reg4.encoded & 0xF) << 8
+    word |= (reg4.encoded & 0xF) << 4
     return word
 
 
@@ -206,10 +206,11 @@ def _encode_instr_reg_imm(instr, reg, imm_20b) -> int:
     word |= (reg.encoded & 0xF) << 20
 
     # TODO: Move to operand checking for the assembler.
-    if imm_20b.encoded > 0xFFFFFF:
-        log.print_warning("Warning! Immediate too large; truncating to 20 bits.")
+    if imm_20b.encoded > 0xFFFFF:
+        log.print_warning("Immediate too large; truncating to 20 bits.")
 
-    word |= (imm_20b.encoded & 0xFFFFFF)
+    word |= (imm_20b.encoded & 0xFFFFF)
+    print(hex(word & 0xFFFFF))
     return word
 
 
@@ -218,7 +219,7 @@ def _encode_instr_reg_16bimm(instr, reg0, imm_16b) -> int:
     word |= (reg0.encoded & 0xF) << 20
 
     if imm_16b.encoded > 0xFFFF:
-        log.print_warning("Warning! Immediate too large; truncating to 16 bits.")
+        log.print_warning("Immediate too large; truncating to 16 bits.")
 
     word |= (imm_16b.encoded & 0xFFFF)
     return word

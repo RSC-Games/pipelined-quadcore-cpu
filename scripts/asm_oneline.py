@@ -1,4 +1,5 @@
 from include import isa, optypes, log
+from bintools import bintools
 import binascii
 import sys
 
@@ -62,15 +63,17 @@ def get_comp_type(comp: str) -> isa.InstructionComponent:
     :return type: Operand type.
     """
 
+    comp_upper = comp.upper()
+
     # Is this a GP register ID, extended register, or conditional?
-    if comp in optypes.GP_REGS_LIST:
-        return isa.InstructionComponent(optypes.OPTYPE_REGISTER_GP, comp, optypes.GP_REGS_LIST[comp])
-    elif comp in optypes.EXTENDED_REGS_LIST:
-        return isa.InstructionComponent(optypes.OPTYPE_REGISTER_EXT, comp, optypes.EXTENDED_REGS_LIST[comp])
-    elif comp in optypes.COMP_COND_LIST:
-        return isa.InstructionComponent(optypes.OPTYPE_COMP_CONDITIONAL, comp, optypes.COMP_COND_LIST[comp])
-    elif comp in optypes.ZERO_COND_LIST:
-        return isa.InstructionComponent(optypes.OPTYPE_ZERO_CONDITIONAL, comp, optypes.ZERO_COND_LIST[comp])
+    if comp_upper in optypes.GP_REGS_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_REGISTER_GP, comp, optypes.GP_REGS_LIST[comp_upper])
+    elif comp_upper in optypes.EXTENDED_REGS_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_REGISTER_EXT, comp, optypes.EXTENDED_REGS_LIST[comp_upper])
+    elif comp_upper in optypes.COMP_COND_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_COMP_CONDITIONAL, comp, optypes.COMP_COND_LIST[comp_upper])
+    elif comp_upper in optypes.ZERO_COND_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_ZERO_CONDITIONAL, comp, optypes.ZERO_COND_LIST[comp_upper])
     
     # TODO: Later add support for labels (in actual assembler)
     # Is this a hexadecimal value?
@@ -129,9 +132,13 @@ def main(argv: list[str]) -> int:
         
         # Re-encode as little endian for display.
         dec = int.to_bytes(encoded, 4, byteorder='little', signed=False)
-        encoded = int.from_bytes(dec, 'big', signed=False)
+        encoded_print = int.from_bytes(dec, 'big', signed=False)
 
-        log.print_ok(f"Encoded result (little endian hex): {hex(encoded)}\n")
+        log.print_ok(f"Encoded result (little endian hex): {hex(encoded_print)}")
+
+        # Write the bytes to a file for direct loading in the emulator.
+        print("Saved binary output to ./out.bin\n")
+        bintools.write_raw("out.bin", [encoded])
 
     return 0
 
