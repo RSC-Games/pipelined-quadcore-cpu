@@ -1,4 +1,4 @@
-from include import isa, optypes
+from include import isa, optypes, log
 import binascii
 import sys
 
@@ -34,12 +34,12 @@ def encode_instr(instr: str) -> int:
 
     if instr_opcode is None:
         if isa.instruction_def_exists(instr_name):
-            print(f"ERROR: Unrecognized instruction/operand pair: {instr_name}, {isa.operands_as_str(op_types)}")
-            print("Valid instruction definitions listed below:")
+            log.print_error(f"Unrecognized instruction/operand pair: {instr_name}, {isa.operands_as_str(op_types)}")
+            log.print_warnf("Valid instruction definitions listed below:")
             isa.print_instruction_entries(instr_name)
 
         else:
-            print(f"ERROR: Undefined instruction: {instr_name}")
+            log.print_error(f"Unknown instruction: {instr_name}")
         return -1
 
     # Encoded in little endian form.
@@ -62,28 +62,43 @@ def get_comp_type(comp: str) -> isa.InstructionComponent:
     :return type: Operand type.
     """
 
-    # Is this a register ID or conditional?
-    if comp in optypes.REGS_LIST:
-        #print(f"Identified register {comp}")
-        return isa.InstructionComponent(optypes.OPTYPE_REGISTER, comp, optypes.REGS_LIST[comp])
-    elif comp in optypes.COND_LIST:
-        #print(f"Identified conditional {comp}")
-        return isa.InstructionComponent(optypes.OPTYPE_CONDITIONAL, comp, optypes.COND_LIST[comp])
+    # Is this a GP register ID, extended register, or conditional?
+    if comp in optypes.GP_REGS_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_REGISTER_GP, comp, optypes.GP_REGS_LIST[comp])
+    elif comp in optypes.EXTENDED_REGS_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_REGISTER_EXT, comp, optypes.EXTENDED_REGS_LIST[comp])
+    elif comp in optypes.COMP_COND_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_COMP_CONDITIONAL, comp, optypes.COMP_COND_LIST[comp])
+    elif comp in optypes.ZERO_COND_LIST:
+        return isa.InstructionComponent(optypes.OPTYPE_ZERO_CONDITIONAL, comp, optypes.ZERO_COND_LIST[comp])
     
     # TODO: Later add support for labels (in actual assembler)
     # Is this a hexadecimal value?
-    if comp[:2] != "0x":
-        print(f"ERROR: Unrecognized component {comp}")
-        raise RuntimeError("Unrecognized component.")
+    if comp[:2] == "0x":
+        potential_hex = comp[2:]
 
-    potential_hex = comp[2:]
+        try:
+            val = binascii.unhexlify(potential_hex)
+            #print(f"Identified address {comp}")
+            return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int.from_bytes(val, 'big', signed=False))
+        except:
 
-    try:
-        val = binascii.unhexlify(potential_hex)
-        #print(f"Identified address {comp}")
-        return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int.from_bytes(val, 'big', signed=False))
-    except:
-        print(f"ERROR: Illegal hex value: {comp}")
+            log.print_error(f"Illegal hex value: {comp}")
+            raise RuntimeError("Unrecognized component.")
+        
+    elif comp[:2] == "0b":
+        bin_val = comp[2:]
+
+        try:
+            val = int(bin_val, 2)
+            return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, val)
+        except:
+            log.print_error(f"Illegal bin value: {comp}")
+            raise RuntimeError("Unrecognized component.")
+    elif comp.isnumeric():
+        return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int(comp))
+    else:
+        log.print_error(f"Unrecognized component {comp}")
         raise RuntimeError("Unrecognized component.")
     
 
@@ -116,7 +131,7 @@ def main(argv: list[str]) -> int:
         dec = int.to_bytes(encoded, 4, byteorder='little', signed=False)
         encoded = int.from_bytes(dec, 'big', signed=False)
 
-        print(f"Encoded result (little endian hex): {hex(encoded)}\n")
+        log.print_ok(f"Encoded result (little endian hex): {hex(encoded)}\n")
 
     return 0
 
