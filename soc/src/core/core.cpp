@@ -12,7 +12,11 @@
 #include <cstdlib>
 
 // TODO: make portable
-#include <unistd.h>
+#if __MINGW32__
+    #include <Windows.h>
+#elif __linux__
+    #include <unistd.h>
+#endif
 
 namespace core {
 
@@ -48,7 +52,8 @@ void Core::simulate() {
         
             // TODO: make portable.
             LOG_INFO("Executed thread... waiting for next instruction.");
-            sleep(1);
+            // TODO: Make sleep library... maybe?
+            //sleep(1);
         }
         // TODO: Catch emulated CPU exceptions. Currently unsupported.
         catch (uint32_t exc) {
@@ -106,16 +111,16 @@ void Core::CORE_instr_fetch() {
     // TODO: Store the instruction for the next pipeline stage.
     uint32_t phy_addr = this->mmu->tlb_translate(this->pc);
     uint32_t instruction = this->memory->load_word(phy_addr);
-
     LOG_INFO("Fetched instruction!");
     std::cout << "Instruction opcode " << std::hex << instruction << "\n";
-    // NOTE: DOES NOTHING!!!!
+    //this->
+    // TODO: Store the fetched instruction for the next pipeline stage.
 }
 
 void Core::CORE_decode_instr() {
     // TODO: Get fetched instruction from last pipeline stage.
-    uint32_t instruction = 0; // Get instruction from somewhere!
-    // TODO: Huge LUT required for decoding the instruction.
+    uint32_t instruction = 0;
+    // TODO: Use isa_decode.h to decode the instruction.
 }
 
 void Core::CORE_execute_op() {
