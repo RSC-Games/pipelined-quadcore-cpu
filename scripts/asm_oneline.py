@@ -98,7 +98,7 @@ def get_comp_type(comp: str) -> isa.InstructionComponent:
         except:
             log.print_error(f"Illegal bin value: {comp}")
             raise RuntimeError("Unrecognized component.")
-    elif comp.isnumeric():
+    elif comp.isnumeric() or (comp[0] == "-" and comp[1:].isnumeric()):
         return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int(comp))
     else:
         log.print_error(f"Unrecognized component {comp}")
