@@ -3,8 +3,8 @@ from . import optypes
 from . import log
 import binascii
 
-ISA_VERSION_MAJOR = 1
-ISA_VERSION_MINOR = 1
+ISA_VERSION_MAJOR = 0
+ISA_VERSION_MINOR = 3
 ISA_VERSION = f"v{ISA_VERSION_MAJOR}.{ISA_VERSION_MINOR}"
 
 INSTRUCTION_LUT = {
@@ -40,11 +40,13 @@ INSTRUCTION_LUT = {
     "rsh_imm": 0b00101011,      # RSH OPERAND_REG IMM_20_BIT_SHIFT
 
     "jmp_imm": 0b00110000,      # JMP ADDR_REG IMM_20_BIT_SHIFT
-    "jmp_rel": 0b00110001,      # JMP BASE_ADDR_REG OFFSET_REG
-    "jmp": 0b00110010,          # JMP ADDR_REG
-    "jmpc": 0b00110011,         # JMP COND OPERAND_REG1 OPERAND_REG2 BASE_ADDR_REG OFFSET_REG
-    "jmpc_z": 0b00110100,       # JMPZ COND OPERAND_REG1 BASE_ADDR_REG OFFSET_REG
+    "jmp": 0b00110001,          # JMP BASE_ADDR_REG OFFSET_REG
+    "jmp_abs": 0b00110010,      # JMP ADDR_REG
+    "jmp_rel": 0b00110011,      # JMP IMM_20_BIT
+    "bnx": 0b00110100,          # BNX COND OPERAND_REG1 BASE_ADDR_REG OFFSET_REG
+    "cmp": 0b00110101,          # CMP COND DEST_REG OPERAND_REG1 OPERAND_REG2
 
+    "call_rel": 0b00110111,      # CALL IMM_20_BIT
     "call_imm": 0b00111000,     # CALL ADDR_REG IMM_20_BIT_OFFSET
     "call": 0b00111001,         # CALL BASE_ADDR_REG OFFSET_REG
     "ret": 0b00111010,          # RET
@@ -92,11 +94,13 @@ INSTR_ALIAS_LUT = {
     ("rsh", OPTYPE_REGISTER_GP, OPTYPE_IMMEDIATE): "rsh_imm",
 
     ("jmp", OPTYPE_REGISTER_GP, OPTYPE_IMMEDIATE): "jmp_imm",
-    ("jmp", OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "jmp_rel",
-    ("jmp", OPTYPE_REGISTER_GP): "jmp",
-    ("jmpc", OPTYPE_COMP_CONDITIONAL, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "jmpc",
-    ("jmpc", OPTYPE_ZERO_CONDITIONAL, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "jmpc_z",
+    ("jmp", OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "jmp",
+    ("jmp", OPTYPE_REGISTER_GP): "jmp_abs",
+    ("jmp", OPTYPE_IMMEDIATE): "jmp_rel",
+    ("bnx", OPTYPE_ZERO_CONDITIONAL, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "bnx",
+    ("cmp", OPTYPE_COMP_CONDITIONAL, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "cmp",
 
+    ("call", OPTYPE_IMMEDIATE): "call_rel",
     ("call", OPTYPE_REGISTER_GP, OPTYPE_IMMEDIATE): "call_imm",
     ("call", OPTYPE_REGISTER_GP, OPTYPE_REGISTER_GP): "call",
     ("ret",): "ret",
@@ -162,16 +166,6 @@ def _encode_instr_only(instr) -> int:
     return word; 
 
 
-def _encode_instr_5reg(instr, reg0, reg1, reg2, reg3, reg4) -> int:
-    word = _encode_instr_only(instr)
-    word |= (reg0.encoded & 0xF) << 20
-    word |= (reg1.encoded & 0xF) << 16
-    word |= (reg2.encoded & 0xF) << 12
-    word |= (reg3.encoded & 0xF) << 8
-    word |= (reg4.encoded & 0xF) << 4
-    return word
-
-
 # Use loop?
 def _encode_instr_4reg(instr, reg0, reg1, reg2, reg3) -> int:
     word = _encode_instr_only(instr)
@@ -200,6 +194,17 @@ def _encode_instr_2reg(instr, reg0, reg1) -> int:
 def _encode_instr_1reg(instr, reg) -> int:
     word = _encode_instr_only(instr)
     word |= (reg.encoded & 0xF) << 20
+    return word
+
+
+def _encode_instr_20bimm(instr, imm_20b) -> int:
+    word = _encode_instr_only(instr)
+
+    # TODO: Move to operand checking for the assembler.
+    if imm_20b.encoded > 0xFFFFF:
+        log.print_warning("Immediate too large; truncating to 20 bits.")
+
+    word |= (imm_20b.encoded & 0xFFFFF)
     return word
 
 
@@ -234,18 +239,18 @@ def encode_word(instr, operands: list) -> int:
     Instruction decode types:
         INSTR_ONLY: (no operands).
             - ADD_FP, SUB_FP, MUL_FP, DIV_FP, RET, SYSRET, HLT
-        INSTR_5REG: (5 register operands):
-            - JMPC
         INSTR_4REG: (4 register operands; technically just 4-bit operands at the hw level).
-            - JMPC_Z
+            - BNX, CMP
         INSTR_3REG: (3 register operands).
             - LDB, STB, LD, ST
         INSTR_2REG: (2 register operands).
-            - ADD, SUB, MUL, DIV, AND, OR, XOR, MOV, MOV_EXT, MOV_GP, MOV_EXT2, LSH, RSH, JMP_REL, CALL
+            - ADD, SUB, MUL, DIV, AND, OR, XOR, MOV, MOV_EXT, MOV_GP, MOV_EXT2, LSH, RSH, JMP, CALL
         INSTR_1REG: (1 register operand).
-            - NOT, JMP, PUSH, POP, PUSH_EXT, POP_EXT, SYSCALL, CPUID
+            - NOT, JMP_ABS, PUSH, POP, PUSH_EXT, POP_EXT, SYSCALL, CPUID
+        INSTR_IMM:
+            - JMP_REL, CALL_REL
         INSTR_REG_IMM: (1 register, 1 20-bit immediate).
-            - MOV_IMM, LSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
+            - MOV_IMM, MOV_EXT_IMM, LSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
         INSTR_2REG_IMM: (2 register, 1 16-bit immediate).
             - MOV_IMM_HIGH
     -- EXERPT --
@@ -287,11 +292,13 @@ def encode_word(instr, operands: list) -> int:
         "rsh_imm": _encode_instr_reg_imm,   # RSH OPERAND_REG IMM_20_BIT_SHIFT
 
         "jmp_imm": _encode_instr_reg_imm,   # JMP ADDR_REG IMM_20_BIT_SHIFT
-        "jmp_rel": _encode_instr_2reg,      # JMP BASE_ADDR_REG OFFSET_REG
-        "jmp": _encode_instr_1reg,          # JMP ADDR_REG
-        "jmpc": _encode_instr_5reg,         # JMP COND OPERAND_REG1 OPERAND_REG2 BASE_ADDR_REG OFFSET_REG
-        "jmpc_z": _encode_instr_4reg,       # JMPZ COND OPERAND_REG1 BASE_ADDR_REG OFFSET_REG
+        "jmp": _encode_instr_2reg,          # JMP BASE_ADDR_REG OFFSET_REG
+        "jmp_abs": _encode_instr_1reg,      # JMP ADDR_REG
+        "jmp_rel": _encode_instr_20bimm,    # JMP IMM_20_BIT
+        "bnx": _encode_instr_4reg,          # BNX COND OPERAND_REG BASE_ADDR_REG OFFSET_REG
+        "cmp": _encode_instr_4reg,          # CMP COND DEST_REG OPERAND_REG1 OPERAND_REG2
 
+        "call_rel": _encode_instr_20bimm,   # CALL IMM_20_BIT
         "call_imm": _encode_instr_reg_imm,  # CALL ADDR_REG IMM_20_BIT_OFFSET
         "call": _encode_instr_2reg,         # CALL BASE_ADDR_REG OFFSET_REG
         "ret": _encode_instr_only,          # RET

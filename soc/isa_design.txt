@@ -1,4 +1,4 @@
-INSTRUCTION SET REVISION v1.1
+INSTRUCTION SET REVISION v0.3
 
 CPU Type: Scalar Pipelined 32 bit RISC CPU.
 Features: 
@@ -71,7 +71,7 @@ Instruction set:
 0b00010111 - MOV_EXT <DEST EXT register> <SRC GP register>  (Move one general-purpose register value to an extended register).
 0b00011000 - MOV_GP <DEST GP register> <SRC EXT register> (Move one extended register value to a general-purpose register).
 0b00011001 - MOV_EXT2 <DEST EXT register> <SRC EXT register> (Move one extended register value to another extended register).
-0b00011010 - MOV_EXT_IMM <DEST EXT register> <20 bit immediate> (Move an immeidate into an extended register).
+0b00011010 - MOV_EXT_IMM <DEST EXT register> <20 bit immediate> (Move an immediate into an extended register).
 0b0001XXXX - empty
 0b00100000 - LDB <DEST register> <BASE_ADDR register> <OFFSET register> (Load a byte from memory at the address register value, left shift it the given amount, then store it into the given register, overwriting all bits present at that offset. Must be byte aligned)
 0b00100001 - STB <SRC register> <BASE_ADDR register> <OFFSET register> (Store a byte to memory at the address register value. Right shift the byte, keep only the lowest byte, and write it to memory.)
@@ -84,11 +84,13 @@ Instruction set:
 0b00101011 - RSH_IMM <OPERAND register> <20 bit immediate> (Right shifts the provided register by an immediate)
 0b00101XXX - empty
 0b00110000 - JMP_IMM <BASE_ADDR register> <20 bit immediate> (For small code sizes allows extremely fast jumps within a megabyte above the provided address register)
-0b00110001 - JMP_REL <BASE_ADDR register> <OFFSET register> (Jump to an offset relative to the provided address register)
-0b00110010 - JMP <ADDRESS register> (Jump to an absolute address in the memory space from the provided register)
-0b00110011 - JMPC <3 bit conditional code> <OPERAND register 1> <OPERAND register 2> <BASE_ADDR register> <OFFSET register> (Jump conditionally. Codes include EQ, LT, GT, LE, GE, NE. Compare 2 operands with this and if the condition is met, jump to the absolute address in the provided register)
-0b00110100 - JMPC_Z <1 bit conditional code> <OPERAND register> <BASE_ADDR register> <OFFSET register> (Jump conditionally. Codes include NZ (NOT ZERO), ZR (ZERO). Compare the operand with 0, and if the condition is met, jump to the absolute address in the provided register)
+0b00110001 - JMP <BASE_ADDR register> <OFFSET register> (Jump to an offset relative to the provided address register)
+0b00110010 - JMP_ABS <ADDRESS register> (Jump to an absolute address in the memory space from the provided register)
+0b00110011 - JMP_REL <20 bit signed immediate> (Jump unconditionally relative to the current PC)
+0b00110100 - BNX <1 bit conditional code> <OPERAND register> <BASE_ADDR register> <OFFSET register> (Branch. Codes include NZ (NOT ZERO), ZR (ZERO). Compare the operand with 0, and if the condition is met, jump to the absolute address in the provided register)
+0b00110101 - CMP <3 bit conditional code> <DEST register> <OPERAND register 1> <OPERAND register 2> (Compare the two operands and store the result in dest. 1 == true, 0 == false. Codes include [EQ | LT | GT | LE | GE | NE])
 0b00110XXX - empty
+0b00110111 - CALL_REL <20 bit signed immediate> (Push the PC to the stach, then jump to the immediate relative to the current PC value.)
 0b00111000 - CALL_IMM <BASE_ADDR register> <20 byte immediate> (Push the PC to the stack, then jump to the function specified at the address + the immediate offset)
 0b00111001 - CALL <BASE_ADDR register> <OFFSET register> (Push the PC to the stack, then jump to the address in the address register + the offset register)
 0b00111010 - RET (Pop the PC from the stack)
@@ -150,10 +152,12 @@ LSH_IMM 		0bXXXXXXXX     		OPREG/IMM(4b)	IMM(8b)			IMM(8b)     0bNNNNNNNN PPPPII
 RSH 			0bXXXXXXXX     		OPREG/SHREG(8b)	0x0				0x0			0bNNNNNNNN PPPPHHHH -------- --------
 RSH_IMM 		0bXXXXXXXX     		OPREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN PPPPIIII IIIIIIII IIIIIIII
 JMP_IMM			0bXXXXXXXX     		AREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN AAAAIIII IIIIIIII IIIIIIII
-JMP_REL 		0bXXXXXXXX     		AREG/OFREG(8b)	0x0				0x0			0bNNNNNNNN AAAAFFFF -------- --------
-JMP 			0bXXXXXXXX     		AREG(4b)/empty	0x0				0x0			0bNNNNNNNN AAAA---- -------- --------
-JMPC 			0bXXXXXXXX     		CC(4b)/OPREG1	OPREG2/AREG		OFREG(4b)	0bNNNNNNNN -CCCPPPP PPPPAAAA FFFF----
-JMPC_Z 			0bXXXXXXXX     		CC(4b)/OPREG	AREG/OFREG		0x0			0bNNNNNNNN ---CPPPP AAAAFFFF --------
+JMP		 		0bXXXXXXXX     		AREG/OFREG(8b)	0x0				0x0			0bNNNNNNNN AAAAFFFF -------- --------
+JMP_ABS			0bXXXXXXXX     		AREG(4b)/empty	0x0				0x0			0bNNNNNNNN AAAA---- -------- --------
+JMP_REL			0bXXXXXXXX			0x0/IMM(4b)		IMM(8b)			IMM(8b)		0bNNNNNNNN ----IIII IIIIIIII IIIIIIII
+BNX 			0bXXXXXXXX     		CC(4b)/OPREG	AREG/OFREG		0x0			0bNNNNNNNN ---CPPPP AAAAFFFF --------
+CMP 			0bXXXXXXXX     		CC(4b)/DREG		OREG1/OREG2		0x0			0bNNNNNNNN -CCCDDDD PPPPPPPP --------
+CALL_REL		0bXXXXXXXX			0x0/IMM(4b)		IMM(8b)			IMM(8b)		0bNNNNNNNN ----IIII IIIIIIII IIIIIIII
 CALL_IMM 		0bXXXXXXXX     		AREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN AAAAIIII IIIIIIII IIIIIIII
 CALL 			0bXXXXXXXX     		AREG/OFREG		0x0				0x0			0bNNNNNNNN AAAAFFFF -------- --------
 RET 			0bXXXXXXXX			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
@@ -169,18 +173,18 @@ CPUID 			0bXXXXXXXX     		DREG(4b)/empty	0x0				0x0			0bNNNNNNNN DDDD---- ------
 Instruction decode types:
 	INSTR_ONLY: (no operands).
 		- ADD_FP, SUB_FP, MUL_FP, DIV_FP, RET, SYSRET, HLT
-	INSTR_5REG: (5 register operands):
-		- JMPC
 	INSTR_4REG: (4 register operands; technically just 4-bit operands at the hw level).
-		- JMPC_Z
+		- BNX, CMP
 	INSTR_3REG: (3 register operands).
 		- LDB, STB, LD, ST
 	INSTR_2REG: (2 register operands).
-	    - ADD, SUB, MUL, DIV, AND, OR, XOR, MOV, MOV_EXT, MOV_GP, MOV_EXT2, LSH, RSH, JMP_REL, CALL
+	    - ADD, SUB, MUL, DIV, AND, OR, XOR, MOV, MOV_EXT, MOV_GP, MOV_EXT2, LSH, RSH, JMP, CALL
 	INSTR_1REG: (1 register operand).
-		- NOT, JMP, PUSH, POP, PUSH_EXT, POP_EXT, SYSCALL, CPUID
+		- NOT, JMP_ABS, PUSH, POP, PUSH_EXT, POP_EXT, SYSCALL, CPUID
+	INSTR_IMM:
+		- JMP_REL, CALL_REL
 	INSTR_REG_IMM: (1 register, 1 20-bit immediate).
-		- MOV_IMM, MOV_EXT_IMM, sLSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
+		- MOV_IMM, MOV_EXT_IMM, LSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
 	INSTR_2REG_IMM: (2 register, 1 16-bit immediate).
 		- MOV_IMM_HIGH
 
