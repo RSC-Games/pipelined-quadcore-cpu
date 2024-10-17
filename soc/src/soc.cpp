@@ -25,10 +25,11 @@ core::SoC::SoC(const core::SoCConfigurationRing &config_ring) {
     this->cores = new core::Core*[config_ring.core_count];
 
     this->memory = new Memory(config_ring.mem_size_MB * 1048576);
+    this->bootrom = new BootROM(BOOTROM_BYTES, sizeof(BOOTROM_BYTES));
     
     // TODO: Put each core on its own execution thread.
     for (int i = 0; i < config_ring.core_count; i++) {
-        this->cores[i] = new core::Core(this->memory);
+        this->cores[i] = new core::Core(this->memory, this->bootrom);
         this->cores[i]->CORE_set_clock_rate(config_ring.clock_speed_MHz);
     }
 }

@@ -26,11 +26,14 @@ project (pipelined_qc_cpu)
 # Create a sources variable with a link to all cpp files to compile
 set(SOURCES
     soc/src/core/memory.cpp
+    soc/src/core/bootrom.cpp
     soc/src/core/mmu.cpp
     soc/src/core/core.cpp
     soc/src/util/logger.cpp
     soc/src/soc.cpp
     soc/src/main.cpp
+
+    isa/src/common/isa_decode.cpp
 )
 
 # Add an executable with the above sources

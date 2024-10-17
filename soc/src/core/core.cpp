@@ -1,17 +1,18 @@
 #include "core/core.h"
-#include "core/interrupts.h"
 #include "core/memory.h"
 #include "core/mmu.h"
 #include "soc.h"
 
+#include "common/interrupts.h"
 #include "common/isa_decode.h"
 
 #include "util/logger.h"
+#include "config.h"
 
 #include <iostream>
 #include <cstdlib>
 
-// TODO: make portable
+// TODO: Make timing library that hides this.
 #if __MINGW32__
     #include <Windows.h>
 #elif __linux__
@@ -20,12 +21,19 @@
 
 namespace core {
 
-Core::Core(core::Memory* mem) {
+Core::Core(core::Memory* mem, core::BootROM* bootrom) {
     this->register_file = new unsigned int[16];
     this->pc = 0xFFFFFFFC;  // Core boots 4 bytes before the end of addressable memory.
     this->priv_lvl = core::PRIV_0_KERNEL_MODE; // Core starts in kernel mode.
-    this->memory = mem;
-    this->mmu = new core::MMU();
+    this->mmu = new core::MMU(mem, bootrom);
+
+    // Initialize pipeline.
+    this->DECODE_next_instr = 0x29000000; // NOP
+    this->EXECUTE_decoded_instr = new isa::DecodedInstruction {
+        nullptr, // No operands.
+        0,
+        0x29
+    };
 }
 
 Core::~Core() {
@@ -53,7 +61,7 @@ void Core::simulate() {
             // TODO: make portable.
             LOG_INFO("Executed thread... waiting for next instruction.");
             // TODO: Make sleep library... maybe?
-            //sleep(1);
+            sleep(1);
         }
         // TODO: Catch emulated CPU exceptions. Currently unsupported.
         catch (uint32_t exc) {
@@ -71,31 +79,31 @@ void Core::print_exception_frame(uint32_t exception) {
     std::string exception_name = "UNDEFINED";
 
     switch (exception) {
-        case core::INT_LOAD_FAULT:
+        case isa::INT_LOAD_FAULT:
             exception_name = "LoadFault";
             break;
-        case core::INT_STORE_FAULT:
+        case isa::INT_STORE_FAULT:
             exception_name = "StoreFault";
             break;
-        case core::INT_PAGE_FAULT:
+        case isa::INT_PAGE_FAULT:
             exception_name = "PageFault";
             break;
-        case core::INT_INVALID_PAGE_FAULT:
+        case isa::INT_INVALID_PAGE_FAULT:
             exception_name = "InvalidPageFault";
             break;
-        case core::INT_LOAD_STORE_ALIGNMENT_FAULT:
+        case isa::INT_LOAD_STORE_ALIGNMENT_FAULT:
             exception_name = "LoadStoreAlignmentFault";
             break;
-        case core::INT_INVALID_OPCODE_FAULT:
+        case isa::INT_INVALID_OPCODE_FAULT:
             exception_name = "InvalidOpcodeFault";
             break;
-        case core::INT_INSTRUCTION_FETCH_FAULT:
+        case isa::INT_INSTRUCTION_FETCH_FAULT:
             exception_name = "InstructionFetchFault";
             break;
-        case core::INT_INSTR_FETCH_ALIGNMENT_FAULT:
+        case isa::INT_INSTR_FETCH_ALIGNMENT_FAULT:
             exception_name = "ZeroDivisionFault";
             break;
-        case core::INT_DOUBLE_FAULT:
+        case isa::INT_DOUBLE_FAULT:
             exception_name = "DoubleFault";
             break;
     }
@@ -108,23 +116,29 @@ void Core::print_exception_frame(uint32_t exception) {
 }
 
 void Core::CORE_instr_fetch() {
+    LOG_INFO("PIPELINE STAGE 1");
     // TODO: Store the instruction for the next pipeline stage.
     uint32_t phy_addr = this->mmu->tlb_translate(this->pc);
-    uint32_t instruction = this->memory->load_word(phy_addr);
+    uint32_t instruction = this->mmu->load_word(phy_addr);
     LOG_INFO("Fetched instruction!");
+
     std::cout << "Instruction opcode " << std::hex << instruction << "\n";
-    //this->
+    this->DECODE_next_instr = instruction;
     // TODO: Store the fetched instruction for the next pipeline stage.
 }
 
 void Core::CORE_decode_instr() {
-    // TODO: Get fetched instruction from last pipeline stage.
-    uint32_t instruction = 0;
-    // TODO: Use isa_decode.h to decode the instruction.
+    LOG_INFO("PIPELINE STAGE 2:");
+
+    isa::DecodedInstruction* decoded = isa::decode_instr(DECODE_next_instr);
+    this->EXECUTE_decoded_instr = decoded;
 }
 
 void Core::CORE_execute_op() {
-    // TODO: Build dispatch table and execute the instruction.
+    // TODO: Build another dispatch table/huge switch and execute the instruction.
+    LOG_INFO("PIPELINE STAGE 3:");
+    isa::DecodedInstruction* decoded = this->EXECUTE_decoded_instr;
+    std::cout << "instr " << std::hex << decoded->instruction << " op cnt " << decoded->operand_cnt << "\n";
 }
 
 void Core::CORE_write_back() {
@@ -135,7 +149,21 @@ void Core::CORE_write_back() {
 void Core::CORE_run_pipeline() {
     // Due to internal implementation details, pipeline stages will be executed in reverse
     // to avoid requiring extra memory per stage.
+    this->CORE_execute_op();
+    // TODO: Operand fetch stage?
+    this->CORE_decode_instr();
     this->CORE_instr_fetch();
+
+    // DEBUGGING: Print current pipeline state.
+    #if VERBOSE_CPU
+        LOG_WARNING("Current pipeline state:");
+        std::cout << "Fetch: PC 0x" << std::hex << this->pc << "\n";
+        std::cout << "Decode: Opcode 0x" << std::hex << this->DECODE_next_instr << "\n";
+        std::cout << "Fetch Data? ??? \n";
+        std::cout << "Execute: Decoded 0x"<< std::hex << (this->EXECUTE_decoded_instr->instruction) << " op cnt " 
+            << this->EXECUTE_decoded_instr->operand_cnt << "\n";
+        std::cout << "Write Back: (unimplemented)" << "\n\n";
+    #endif
 }
 
 }

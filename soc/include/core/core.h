@@ -1,6 +1,7 @@
 #include <cstdint>
 #include "core/mmu.h"
 #include "core/memory.h"
+#include "common/isa_decode.h"
 
 #ifndef INC_CORE_CPU_H
 #define INC_CORE_CPU_H
@@ -43,13 +44,16 @@ class Core {
     uint32_t clock_rate = 0;  // Current CPU clock rate.
     bool halted = true;
 
-    core::Memory* memory;
     core::MMU* mmu;
     // TODO: Memory Mangement Unit + Memory Protection Unit.
     // TODO: Manage pipeline.
 
+    // Pipeline state
+    uint32_t DECODE_next_instr;
+    isa::DecodedInstruction* EXECUTE_decoded_instr;
+
 public:
-    Core(core::Memory* mem);
+    Core(core::Memory* mem, core::BootROM* bootrom);
     Core(Core&& other) = delete;
     Core(const Core& other) = delete;
     ~Core();
