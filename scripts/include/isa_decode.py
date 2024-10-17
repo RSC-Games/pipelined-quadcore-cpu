@@ -1,7 +1,6 @@
 from .optypes import OPTYPE_COMP_CONDITIONAL, OPTYPE_ZERO_CONDITIONAL, OPTYPE_IMMEDIATE, OPTYPE_REGISTER_GP, OPTYPE_REGISTER_EXT
 from . import optypes
 from . import isa
-import binascii
 
 ISA_VERSION_MAJOR = 1
 ISA_VERSION_MINOR = 1
@@ -12,16 +11,6 @@ REVERSE_ALIAS_LUT = {isa.INSTR_ALIAS_LUT[key]: key for key in isa.INSTR_ALIAS_LU
 
 def _decode_instr_only(instr: int) -> list[int]:
     return []
-
-
-def _decode_instr_5reg(instr: int) -> list[int]:
-    return [
-        instr >> 20 & 0xF, # REG0
-        instr >> 16 & 0xF, # REG1
-        instr >> 12 & 0xF, # REG2
-        instr >> 8 & 0xF, # REG3
-        instr >> 4 & 0xF, # REG4
-    ]
 
 
 def _decode_instr_4reg(instr: int) -> list[int]:
@@ -61,6 +50,12 @@ def _decode_instr_reg_imm(instr: int) -> list[int]:
     ]
 
 
+def _decode_instr_20bimm(instr: int) -> list[int]:
+    return [
+        instr & 0xFFFFF, # IMM_20B
+    ]
+
+
 def _decode_instr_reg_16bimm(instr: int) -> list[int]:
     return [
         instr >> 20 & 0xF, # REG
@@ -76,18 +71,18 @@ def decode_word(instr_name: str, instr: int) -> list[int]:
     Instruction decode types:
         INSTR_ONLY: (no operands).
             - ADD_FP, SUB_FP, MUL_FP, DIV_FP, RET, SYSRET, HLT
-        INSTR_5REG: (5 register operands):
-            - JMPC
         INSTR_4REG: (4 register operands; technically just 4-bit operands at the hw level).
-            - JMPC_Z
+            - BNX, CMP
         INSTR_3REG: (3 register operands).
             - LDB, STB, LD, ST
         INSTR_2REG: (2 register operands).
-            - ADD, SUB, MUL, DIV, AND, OR, XOR, MOV, MOV_EXT, MOV_GP, MOV_EXT2, LSH, RSH, JMP_REL, CALL
+            - ADD, SUB, MUL, DIV, AND, OR, XOR, MOV, MOV_EXT, MOV_GP, MOV_EXT2, LSH, RSH, JMP, CALL
         INSTR_1REG: (1 register operand).
-            - NOT, JMP, PUSH, POP, PUSH_EXT, POP_EXT, SYSCALL, CPUID
+            - NOT, JMP_ABS, PUSH, POP, PUSH_EXT, POP_EXT, SYSCALL, CPUID
+        INSTR_IMM:
+            - JMP_REL, CALL_REL
         INSTR_REG_IMM: (1 register, 1 20-bit immediate).
-            - MOV_IMM, LSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
+            - MOV_IMM, MOV_EXT_IMM, LSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
         INSTR_2REG_IMM: (2 register, 1 16-bit immediate).
             - MOV_IMM_HIGH
     -- EXERPT --
@@ -129,11 +124,13 @@ def decode_word(instr_name: str, instr: int) -> list[int]:
         "rsh_imm": _decode_instr_reg_imm,   # RSH OPERAND_REG IMM_20_BIT_SHIFT
 
         "jmp_imm": _decode_instr_reg_imm,   # JMP ADDR_REG IMM_20_BIT_SHIFT
-        "jmp_rel": _decode_instr_2reg,      # JMP BASE_ADDR_REG OFFSET_REG
-        "jmp": _decode_instr_1reg,          # JMP ADDR_REG
-        "jmpc": _decode_instr_5reg,         # JMP COND OPERAND_REG1 OPERAND_REG2 BASE_ADDR_REG OFFSET_REG
-        "jmpc_z": _decode_instr_4reg,       # JMPZ COND OPERAND_REG1 BASE_ADDR_REG OFFSET_REG
+        "jmp": _decode_instr_2reg,          # JMP BASE_ADDR_REG OFFSET_REG
+        "jmp_abs": _decode_instr_1reg,      # JMP ADDR_REG
+        "jmp_rel": _decode_instr_20bimm,    # JMP IMM_20_BIT
+        "cmp": _decode_instr_4reg,          # CMP COND DEST_REG OPERAND_REG1 OPERAND_REG2
+        "bnx": _decode_instr_4reg,          # BNX COND OPERAND_REG1 BASE_ADDR_REG OFFSET_REG
 
+        "call_rel": _decode_instr_20bimm,   # CALL IMM_20_BIT
         "call_imm": _decode_instr_reg_imm,  # CALL ADDR_REG IMM_20_BIT_OFFSET
         "call": _decode_instr_2reg,         # CALL BASE_ADDR_REG OFFSET_REG
         "ret": _decode_instr_only,          # RET

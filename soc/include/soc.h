@@ -20,6 +20,7 @@ class SoC {
     uint8_t core_count;
     core::Core** cores;
     core::Memory* memory;
+    core::BootROM* bootrom;
 
 public:
     SoC(const core::SoCConfigurationRing& config_ring);

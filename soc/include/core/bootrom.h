@@ -1,20 +1,23 @@
 #include <cstdint>
 #include <stddef.h>
 
-#ifndef INC_CORE_MEMORY_H
-#define INC_CORE_MEMORY_H
+#ifndef __core_bootrom_h
+#define __core_bootrom_h
 
 namespace core {
+const uint8_t BOOTROM_BYTES[4] = {
+    0x00, 0x12, 0x10, 0x34  // bnx NZ X0 X1 X2
+};
 
-class Memory {
-    uint8_t* mem_bytes;
-    size_t mem_size = 0;
+class BootROM {
+    const uint8_t* rom_bytes;
+    size_t rom_size = 0;
 
 public:
-    Memory(size_t size);
-    Memory(const Memory& other) = delete;
-    Memory(Memory&& other) = delete;
-    ~Memory();
+    BootROM(const uint8_t* bytes, size_t size);
+    BootROM(const BootROM& other) = delete;
+    BootROM(BootROM&& other) = delete;
+    ~BootROM();
 
     // Load memory from a provided aligned physical address.
     // TODO: Inline?
@@ -32,4 +35,4 @@ public:
 
 }
 
-#endif  // INC_CORE_MEMORY_H
+#endif  // __core_bootrom_h

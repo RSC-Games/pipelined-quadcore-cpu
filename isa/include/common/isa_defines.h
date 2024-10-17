@@ -5,6 +5,7 @@
 #include <vector>
 
 namespace isa {
+    // Add const values for the instructions ?
 }
 
 #endif

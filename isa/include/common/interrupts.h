@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace core {
+namespace isa {
 // CPU Exception Vectors.
 const uint32_t INT_LOAD_FAULT = 0;  // Memory Fault
 const uint32_t INT_STORE_FAULT = 4;  // Memory Fault
