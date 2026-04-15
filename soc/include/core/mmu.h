@@ -30,6 +30,8 @@ public:
     // TODO: Inline?
     uint32_t tlb_translate(uint32_t vaddr);
 
+    // TODO: not required? perform TLB translate in code then directly request
+    // a word from the bus controller.
     uint32_t load_word(uint32_t vaddr);
     void store_word(uint32_t vaddr, uint32_t word);
     uint8_t load_byte(uint32_t vaddr);

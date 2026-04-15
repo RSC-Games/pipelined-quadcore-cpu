@@ -21,9 +21,13 @@ MMU::~MMU() {
     LOG_INFO("Destructor called; doing nothing.");
 }
 
+// Only required MMU function. Physical address fetches can be managed by a
+// "abstract memory layer" to redirect to MMIO/BootROM/Memory
 uint32_t MMU::tlb_translate(uint32_t vaddr) {
     // TODO: Add page table and virtual address translation.
-    LOG_WARNING("MMU not performing virtual address translation!");
+    #if VERBOSE_MMU
+        LOG_WARNING("MMU not performing virtual address translation!");
+    #endif
     return vaddr;
 }
 
@@ -43,7 +47,10 @@ uint32_t MMU::load_word(uint32_t phy_addr) {
 
 void MMU::store_word(uint32_t phy_addr, uint32_t word) {
     if (phy_addr >= BOOTROM_BASE_ADDR) {
-        LOG_WARNING("Got bootrom address!");
+        #if VERBOSE_MMU
+            LOG_WARNING("Got bootrom address!");
+        #endif
+        
         this->bootrom->store_word(phy_addr - BOOTROM_BASE_ADDR, word);
     }
     else
@@ -52,7 +59,10 @@ void MMU::store_word(uint32_t phy_addr, uint32_t word) {
 
 uint8_t MMU::load_byte(uint32_t phy_addr) {
     if (phy_addr >= BOOTROM_BASE_ADDR) {
-        LOG_WARNING("Got bootrom address!");
+        #if VERBOSE_MMU
+            LOG_WARNING("Got bootrom address!");
+        #endif
+
         return this->bootrom->load_byte(phy_addr - BOOTROM_BASE_ADDR);
     }
 
@@ -61,7 +71,10 @@ uint8_t MMU::load_byte(uint32_t phy_addr) {
 
 void MMU::store_byte(uint32_t phy_addr, uint8_t word) {
     if (phy_addr >= BOOTROM_BASE_ADDR) {
-        LOG_WARNING("Got bootrom address!");
+        #if VERBOSE_MMU
+            LOG_WARNING("Got bootrom address!");
+        #endif
+
         this->bootrom->store_byte(phy_addr - BOOTROM_BASE_ADDR, word);
     }
     else

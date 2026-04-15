@@ -5,8 +5,10 @@
 #define __core_bootrom_h
 
 namespace core {
-const uint8_t BOOTROM_BYTES[4] = {
-    0x00, 0x12, 0x10, 0x34  // bnx NZ X0 X1 X2
+const uint8_t BOOTROM_BYTES[12] = {
+    0x01, 0x00, 0x00, 0x15, // mov X0 1
+    0x00, 0x00, 0x10, 0x01, // add X1 X0
+    0xf8, 0xff, 0x0f, 0x33  // jmp -8
 };
 
 class BootROM {

@@ -2,8 +2,8 @@ from .optypes import OPTYPE_COMP_CONDITIONAL, OPTYPE_ZERO_CONDITIONAL, OPTYPE_IM
 from . import optypes
 from . import isa
 
-ISA_VERSION_MAJOR = 1
-ISA_VERSION_MINOR = 1
+ISA_VERSION_MAJOR = 0
+ISA_VERSION_MINOR = 3
 ISA_VERSION = f"v{ISA_VERSION_MAJOR}.{ISA_VERSION_MINOR}"
 
 DECODE_LUT = {isa.INSTRUCTION_LUT[key]: key for key in isa.INSTRUCTION_LUT}
@@ -67,7 +67,7 @@ def decode_word(instr_name: str, instr: int) -> list[int]:
     """
     Implements the decoding behavior dictated in isa_design.txt
     
-    -- EXERPT --
+    -- EXCERPT --
     Instruction decode types:
         INSTR_ONLY: (no operands).
             - ADD_FP, SUB_FP, MUL_FP, DIV_FP, RET, SYSRET, HLT
@@ -85,7 +85,7 @@ def decode_word(instr_name: str, instr: int) -> list[int]:
             - MOV_IMM, MOV_EXT_IMM, LSH_IMM, RSH_IMM, JMP_IMM, CALL_IMM
         INSTR_2REG_IMM: (2 register, 1 16-bit immediate).
             - MOV_IMM_HIGH
-    -- EXERPT --
+    -- EXCERPT --
 
     :param instr: Instruction-class object to operate on and encode.
     :param operands: Operands to encode.

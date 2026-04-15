@@ -16,17 +16,17 @@ def encode_instr(instr: str) -> int:
     # Strip out any assembly comments (why they're there I have no clue).
     instr = instr.split(";")[0].strip()
     
-    comps = instr.split(" ")
-    instr_name = comps[0].lower()
+    components = instr.split(" ")
+    instr_name = components[0].lower()
 
     # In special cases, one instruction is an alias of another. Find these cases.
     if instr_name in isa.INSTR_REENCODE_LUT:
         instr = " ".join(isa.INSTR_REENCODE_LUT[instr_name])
-        comps = instr.split(" ")
-        instr_name = comps[0].lower()
+        components = instr.split(" ")
+        instr_name = components[0].lower()
 
     # Determine operand types
-    op_types = instr_get_operand_types(comps)
+    op_types = instr_get_operand_types(components)
 
     if op_types is None:
         return -1
@@ -85,7 +85,6 @@ def get_comp_type(comp: str) -> isa.InstructionComponent:
             #print(f"Identified address {comp}")
             return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int.from_bytes(val, 'big', signed=False))
         except:
-
             log.print_error(f"Illegal hex value: {comp}")
             raise RuntimeError("Unrecognized component.")
         
@@ -98,6 +97,7 @@ def get_comp_type(comp: str) -> isa.InstructionComponent:
         except:
             log.print_error(f"Illegal bin value: {comp}")
             raise RuntimeError("Unrecognized component.")
+        
     elif comp.isnumeric() or (comp[0] == "-" and comp[1:].isnumeric()):
         return isa.InstructionComponent(optypes.OPTYPE_IMMEDIATE, comp, int(comp))
     else:

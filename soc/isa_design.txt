@@ -67,7 +67,7 @@ Instruction set:
 0b00010011 - NOT <SRC register/DEST register> (Perform bitwise NOT on the source register)
 0b00010100 - MOV <DEST register> <SRC register> (Moves one register value to another without clearing the source)
 0b00010101 - MOV_IMM <DEST register> <20 bit immediate> (Move a specified immediate value into a provided register)
-0b00010110 - MOV_IMM_HIGH <DEST register> <16 bit immediate> (Move a specified immediate value into the 2 high bytes of a register)
+0b00010110 - MOV_IMM_HIGH <DEST register> <16 bit immediate> (Move a specified immediate value into the 2 high bytes of a register. The lower 2 bytes are set to zeros)
 0b00010111 - MOV_EXT <DEST EXT register> <SRC GP register>  (Move one general-purpose register value to an extended register).
 0b00011000 - MOV_GP <DEST GP register> <SRC EXT register> (Move one extended register value to a general-purpose register).
 0b00011001 - MOV_EXT2 <DEST EXT register> <SRC EXT register> (Move one extended register value to another extended register).
@@ -87,11 +87,11 @@ Instruction set:
 0b00110001 - JMP <BASE_ADDR register> <OFFSET register> (Jump to an offset relative to the provided address register)
 0b00110010 - JMP_ABS <ADDRESS register> (Jump to an absolute address in the memory space from the provided register)
 0b00110011 - JMP_REL <20 bit signed immediate> (Jump unconditionally relative to the current PC)
-0b00110100 - BNX <1 bit conditional code> <OPERAND register> <BASE_ADDR register> <OFFSET register> (Branch. Codes include NZ (NOT ZERO), ZR (ZERO). Compare the operand with 0, and if the condition is met, jump to the absolute address in the provided register)
-0b00110101 - CMP <3 bit conditional code> <DEST register> <OPERAND register 1> <OPERAND register 2> (Compare the two operands and store the result in dest. 1 == true, 0 == false. Codes include [EQ | LT | GT | LE | GE | NE])
+0b00110100 - BNX <1 bit conditional code> <OPERAND register> <BASE_ADDR register> <OFFSET register> (Branch. Codes include NZ=0 (NOT ZERO), ZR=1 (ZERO). Compare the operand with 0, and if the condition is met, jump to the absolute address in the provided register)
+0b00110101 - CMP <3 bit conditional code> <DEST register> <OPERAND register 1> <OPERAND register 2> (Compare the two operands and store the result in dest. 1 == true, 0 == false. Codes include [EQ=0 | LT=1 | GT=2 | LE=3 | GE=4 | NE=5])
 0b00110XXX - empty
-0b00110111 - CALL_REL <20 bit signed immediate> (Push the PC to the stach, then jump to the immediate relative to the current PC value.)
-0b00111000 - CALL_IMM <BASE_ADDR register> <20 byte immediate> (Push the PC to the stack, then jump to the function specified at the address + the immediate offset)
+0b00110111 - CALL_REL <20 bit signed immediate> (Push the PC to the stack, then jump to the immediate relative to the current PC value. Immediate is sign extended in hardware to 32 bits, then added to the PC).
+0b00111000 - CALL_IMM <BASE_ADDR register> <20 byte immediate> (Push the PC to the stack, then jump to the function specified at the address + the immediate offset. immediate is sign extended then added to the PC).
 0b00111001 - CALL <BASE_ADDR register> <OFFSET register> (Push the PC to the stack, then jump to the address in the address register + the offset register)
 0b00111010 - RET (Pop the PC from the stack)
 0b00111011 - PUSH <SRC register> (Push a provided register to the stack)
@@ -112,6 +112,7 @@ Instruction Encoding:
 Encoding is as follows: 
 	0bNN - Instruction
 	0bSS - SREG (Source register)
+	0bSD - SDREG (Source/Destination hybrid register)
 	0bDD - DREG (Destination register)
 	0bAA - AREG (Base address register)
 	0bFF - OFREG (Offset register)
@@ -124,18 +125,18 @@ Encoding is as follows:
 	0b-- - Unused
 
 				BYTE 1 (INSTR)		BYTE 2			BYTE 3			BYTE 4		ENCODED:
-ADD: 			0bXXXXXXXX  		SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SSSSSSSS -------- --------
-SUB:			0bXXXXXXXX			SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SSSSSSSS -------- --------
-MUL:			0bXXXXXXXX			SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SSSSSSSS -------- --------
-DIV: 			0bXXXXXXXX			SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SSSSSSSS -------- --------
+ADD: 			0bXXXXXXXX  		SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SDSDSSSS -------- --------
+SUB:			0bXXXXXXXX			SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SDSDSSSS -------- --------
+MUL:			0bXXXXXXXX			SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SDSDSSSS -------- --------
+DIV: 			0bXXXXXXXX			SREG1/2(8b)		0x0				0x0			0bNNNNNNNN SDSDSSSS -------- --------
 ADD_FP			0bXXXXXXXX			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 SUB_FP			0bXXXXXXXX			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 MUL_FP			0bXXXXXXXX 			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
 DIV_FP			0bXXXXXXXX 			0x0				0x0				0x0			0bNNNNNNNN -------- -------- --------
-AND 			0bXXXXXXXX 			SREG1/2(8b)		0x0 			0x0			0bNNNNNNNN SSSSSSSS -------- --------
-OR 				0bXXXXXXXX	   		SREG1/2(8b)		0x0 			0x0			0bNNNNNNNN SSSSSSSS -------- --------
-XOR 			0bXXXXXXXX	   		SREG1/2(8b)		0x0 			0x0			0bNNNNNNNN SSSSSSSS -------- --------
-NOT 			0bXXXXXXXX	   		SREG(4b)		0x0				0x0			0bNNNNNNNN SSSS---- -------- --------
+AND 			0bXXXXXXXX 			SREG1/2(8b)		0x0 			0x0			0bNNNNNNNN SDSDSSSS -------- --------
+OR 				0bXXXXXXXX	   		SREG1/2(8b)		0x0 			0x0			0bNNNNNNNN SDSDSSSS -------- --------
+XOR 			0bXXXXXXXX	   		SREG1/2(8b)		0x0 			0x0			0bNNNNNNNN SDSDSSSS -------- --------
+NOT 			0bXXXXXXXX	   		SREG(4b)		0x0				0x0			0bNNNNNNNN SDSD---- -------- --------
 MOV				0bXXXXXXXX			DREG/SREG(8b)	0x0				0x0			0bNNNNNNNN DDDDSSSS -------- --------
 MOV_IMM 		0bXXXXXXXX 			DREG/IMM(4b)	IMM(8b)			IMM(8b)		0bNNNNNNNN DDDDIIII IIIIIIII IIIIIIII
 MOV_IMM_HIGH	0bXXXXXXXX			DREG(4b)/empty	IMM(8b)			IMM(8b)		0bNNNNNNNN DDDD---- IIIIIIII IIIIIIII
@@ -190,11 +191,12 @@ Instruction decode types:
 
 
 CPU Pipeline:
-	4 Stage pipeline:
+	5 Stage pipeline:
 	- Instruction Fetch
 	- Instruction Decode
 	- Execute
-	- Data Writeback
+	- Memory Access
+	- Register file commit
 
 Virtual Memory Address Space Layout:
 	0x00000000 - 0x00003EFF: Not memory mapped for illegal address trapping. Only accessible in kernel mode.

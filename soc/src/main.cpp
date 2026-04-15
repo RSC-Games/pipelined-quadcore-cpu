@@ -7,8 +7,13 @@
 
 
 void err_segv(int sig) {
-    std::cout << "got signal " << sig << "\n";
-    std::cout << "Segmentation Fault/FPU Exception\n";
+    std::cout << "got panic signal 0x" << std::hex << sig << "\n";
+
+    if (sig == 0xb)
+        std::cout << "segmentation fault (sigsegv)";
+    else
+        std::cout << "unknown signal";
+
     exit(-1);
 }
 

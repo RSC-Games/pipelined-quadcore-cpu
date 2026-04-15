@@ -21,16 +21,16 @@ uint32_t BootROM::load_word(uint32_t phy_addr) {
     if (phy_addr % 4 != 0) {
         // Unaligned memory access. Fail hard here.
         #if VERBOSE_MEMORY
-            std::cout << "Unaligned access at addr " << std::hex << phy_addr << ", % 4 = " 
+            std::cout << "Unaligned access at addr 0x" << std::hex << phy_addr << ", % 4 = " 
                 << phy_addr % 4 << "\n";
         #endif
 
         throw isa::INT_LOAD_STORE_ALIGNMENT_FAULT;
     }
 
-    if (phy_addr >= this->rom_size - sizeof(phy_addr) - 1) {
+    if (phy_addr > this->rom_size - sizeof(phy_addr)) {
         #if VERBOSE_MEMORY
-            std::cout << "OOB access at " << std::hex << phy_addr << ", cond=addr < " << std::hex 
+            std::cout << "OOB access at 0x" << std::hex << phy_addr << ", cond=addr < " << std::hex 
                 << (phy_addr >= this->rom_size - sizeof(phy_addr)) << "\n";
         #endif
 
@@ -39,7 +39,8 @@ uint32_t BootROM::load_word(uint32_t phy_addr) {
     }
 
     // Read an int from an arbitrary offset in one go.
-    const uint32_t* p_addr = reinterpret_cast<const uint32_t*>(this->rom_bytes) + phy_addr;
+    const uint32_t* p_addr = reinterpret_cast<const uint32_t*>(this->rom_bytes + phy_addr);
+    printf("bootrom array base 0x%p calculated offset 0x%p virtual phy addr 0x%X\n", reinterpret_cast<const uint32_t*>(this->rom_bytes), (uint8_t*)p_addr - (this->rom_bytes), phy_addr);
     return *p_addr;
 }
 

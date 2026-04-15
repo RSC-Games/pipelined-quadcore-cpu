@@ -84,7 +84,7 @@ DecodedInstruction* (*instr_dispatch[256])(uint32_t) = {
 };
 
 // Perform no decoding work. Only the instruction is necessary.
-DecodedInstruction* _decode_instr_only(uint32_t instr) {
+DecodedInstruction* _decode_instr_only(uint32_t /* instr */) {
     return new DecodedInstruction {
         nullptr,    // No operands; don't allocate an array.
         0,          // No operands.
@@ -170,7 +170,7 @@ DecodedInstruction* _decode_instr_reg_imm(uint32_t instr) {
 
 // Decode 1 reg and a 16 bit immediate.
 DecodedInstruction* _decode_instr_reg_16bimm(uint32_t instr) {
-    uint32_t* operands = new uint32_t[2];
+    uint32_t* operands = new uint32_t[2]; // Heap allocation is not ideal; try fitting that into the struct?
     operands[0] = instr >> 20 & 0xF;
     operands[1] = instr & 0xFFFF;
 
@@ -181,15 +181,23 @@ DecodedInstruction* _decode_instr_reg_16bimm(uint32_t instr) {
     };
 }
 
+// Decodes to nothing (pipeline bubbling)
+DecodedInstruction* get_empty_instr() {
+    return new DecodedInstruction {
+        nullptr,
+        0,
+        0
+    };
+}
+
 DecodedInstruction* decode_instr(uint32_t instr) {
     uint32_t instr_opcode = instr >> 24 & 0xFF;
 
     DecodedInstruction* (*decoder) (uint32_t) = instr_dispatch[instr_opcode];
 
     if (decoder == nullptr) {
-        LOG_ERROR("Got illegal instruction...");
-        std::cout << "Instruction code 0x" << std::hex << instr_opcode << ", dec " << std::dec
-            << instr_opcode << " word 0x" << std::hex << instr << "\n";
+        //std::cout << "Instruction code 0x" << std::hex << instr_opcode << ", dec " << std::dec
+        //    << instr_opcode << " word 0x" << std::hex << instr << "\n";
         throw isa::INT_INVALID_OPCODE_FAULT;
     }
 

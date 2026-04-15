@@ -49,5 +49,6 @@
         "map": "cpp",
         "xtr1common": "cpp"
     },
-    "python.analysis.typeCheckingMode": "basic"
+    "python.analysis.typeCheckingMode": "basic",
+    "C_Cpp.default.compilerPath": "c:\\Program Files\\msys2\\ucrt64\\bin\\gcc.exe"
 }

@@ -9,6 +9,8 @@
 namespace core {
 
 // Register names and indexes.
+// Extended registers are indexed the same as the gp regs (though
+// ERV, EFP, and ESP don't exist).
 const int REG_X0 = 0;
 const int REG_X1 = 1;
 const int REG_X2 = 2;
@@ -36,11 +38,22 @@ const int REG_X15 = 15;
 const int PRIV_0_KERNEL_MODE = 0;
 const int PRIV_1_USER_MODE = 1;
 
+struct PipelineStage;
+
 // Representation of an individual CPU core.
 class Core {
+public:
+    typedef void (Core::*instr_table_ptr)(PipelineStage&);
+    typedef instr_table_ptr stage4_payload;
+    typedef instr_table_ptr stage5_payload;
+
+private:
+    instr_table_ptr* instr_table;
+
     uint8_t priv_lvl = 0; // Current CPU core privilege level.
-    uint32_t pc = 0x0;  // Current instruction to execute.
+    uint32_t pc = 0x0;  // Current address to prefetch instruction.
     uint32_t* register_file;  // Local architectural state.
+    uint32_t* extended_registers;  // Extended local architectural registers.
     uint32_t clock_rate = 0;  // Current CPU clock rate.
     bool halted = true;
 
@@ -49,8 +62,7 @@ class Core {
     // TODO: Manage pipeline.
 
     // Pipeline state
-    uint32_t DECODE_next_instr;
-    isa::DecodedInstruction* EXECUTE_decoded_instr;
+    PipelineStage** pipeline_stages;
 
 public:
     Core(core::Memory* mem, core::BootROM* bootrom);
@@ -66,11 +78,11 @@ public:
     void simulate();
 
 private:
-    // TODO: WHERE do I put these?
     void CORE_instr_fetch();
     void CORE_decode_instr();
     void CORE_execute_op();
-    void CORE_write_back();
+    void CORE_mem_access();
+    void CORE_commit_last_instr();
 
     // TODO: Implement pipeline and instruction decoder.
     void CORE_run_pipeline();
@@ -103,48 +115,123 @@ private:
 
     inline uint32_t MMU_translate_addr(uint32_t vaddr);
 
+    inline instr_table_ptr resolve_instr_table_ptr(short instr_id);
+
+    // Stage 3 payloads (execution)
+
     //void _empty  // NOP implemented as ADD_ACC r0, 0
-    void op_add(int reg_src1, int reg_src2, int reg_dest);
-    void op_add_acc(int reg_src_dest, int reg_src2);
-    void op_sub(int reg_src1, int reg_src2, int reg_dest);
-    void op_sub_acc(int reg_src_dest, int reg_src2);
-    void op_mul(int reg_src1, int reg_src2, int reg_dest);
-    void op_mul_acc(int reg_src_dest, int reg_src2);
-    void op_div(int reg_src1, int reg_src2, int reg_dest);
-    void op_div_acc(int reg_src_dest, int reg_src2);
+
+    // Nop is not part of the ISA (only used for pipeline bubbling)
+    void op_nop(PipelineStage& instr);
+    void op_add(PipelineStage& instr);
+    void op_sub(PipelineStage& instr);
+    void op_mul(PipelineStage& instr);
+    void op_div(PipelineStage& instr);
     void _empty_add_fp();
     void _empty_sub_fp();
     void _empty_mul_fp();
     void _empty_div_fp();
-    void op_mov(int reg_src, int reg_dest);
-    void op_mov_imm(int reg_dest, unsigned int imm);
-    void op_mov_imm_high(int reg_dest, unsigned short imm);
-    void op_ldb(int reg_addr, int reg_dest, unsigned short imm_shift);
-    void op_stb(int reg_addr, int reg_src, unsigned short imm_shift);
-    void op_ld(int reg_addr, int reg_dest);
-    void op_st(int reg_addr, int reg_src);
-    void op_and(int reg_src1, int reg_src2, int reg_dest);
-    void op_or(int reg_src1, int reg_src2, int reg_dest);
-    void op_xor(int reg_src1, int reg_src2, int reg_dest);
-    void op_not(int reg_src, int reg_dest);
-    void op_lsh(int reg_operand, int reg_shift);
-    void op_lsh_imm(int reg_operand, unsigned int imm_shift);
-    void op_rsh(int reg_operand, int reg_shift);
-    void op_rsh_imm(int reg_operand, unsigned int imm_shift);
-    void op_jmp_imm(int reg_addr, unsigned int imm_offset);
-    void op_jmp_rel(int reg_addr, int reg_offset);
-    void op_jmp(int reg_addr);
-    void op_jmpc(unsigned short cond_code, int reg_operand1, int reg_operand2, int reg_addr);
-    void op_jmpc_z(bool cond_code, int reg_operand, int reg_addr);
-    void op_call_imm(int reg_addr, unsigned int imm_offset);
-    void op_call(int reg_addr, int reg_offset);
-    void op_ret();
-    void op_push(int reg_src);
-    void op_pop(int reg_dest);
-    void op_hlt();
-    void op_syscall(int reg_id);
-    void op_sysret();
-    void op_systarget(int reg_addr);
+    void op_and(PipelineStage& instr);
+    void op_or(PipelineStage& instr);
+    void op_xor(PipelineStage& instr);
+    void op_not(PipelineStage& instr);
+    void op_mov(PipelineStage& instr);
+    void op_mov_imm(PipelineStage& instr);
+    void op_mov_imm_high(PipelineStage& instr);
+    void op_mov_ext(PipelineStage& instr);
+    void op_mov_gp(PipelineStage& instr);
+    void op_mov_ext2(PipelineStage& instr);
+    void op_mov_ext_imm(PipelineStage& instr);
+    void op_ldb(PipelineStage& instr);
+    void op_stb(PipelineStage& instr);
+    void op_ld(PipelineStage& instr);
+    void op_st(PipelineStage& instr);
+    void op_lsh(PipelineStage& instr);
+    void op_lsh_imm(PipelineStage& instr);
+    void op_rsh(PipelineStage& instr);
+    void op_rsh_imm(PipelineStage& instr);
+    void op_jmp_imm(PipelineStage& instr);
+    void op_jmp(PipelineStage& instr);
+    void op_jmp_abs(PipelineStage& instr);
+    void op_jmp_rel(PipelineStage& instr);
+    void op_bnx(PipelineStage& instr);
+    void op_cmp(PipelineStage& instr);
+    void op_call_rel(PipelineStage& instr);
+    void op_call_imm(PipelineStage& instr);
+    void op_call(PipelineStage& instr);
+    void op_ret(PipelineStage& instr);
+    void op_push(PipelineStage& instr);
+    void op_pop(PipelineStage& instr);
+    void op_push_ext(PipelineStage& instr);
+    void op_pop_ext(PipelineStage& instr);
+    void op_syscall(PipelineStage& instr);
+    void op_sysret(PipelineStage& instr);
+    void op_hlt(PipelineStage& instr);
+    void op_cpuid(PipelineStage& instr);
+
+    // Pipeline stage 4 payloads (memory read/write)
+
+    // Most instructions have nothing to do in stage 4.
+    void stage4_nop(PipelineStage& instr);
+    // Load a byte from mem_addr into reg_commit_val
+    void stage4_load_byte(PipelineStage& instr);
+    // Store a byte mem_data to mem_addr
+    void stage4_store_byte(PipelineStage& instr);
+    // Load a word from mem_addr into reg_commit_val
+    void stage4_load_word(PipelineStage& instr);
+    // Store a word mem_data to mem_addr 
+    void stage4_store_word(PipelineStage& instr);
+
+    // Pipeline stage 5 payloads (architectural commit)
+
+    // Pipeline commit for invalidated instruction (only increments PC; doesn't touch the
+    // stack pointer).
+    void stage5_commit_invalid(PipelineStage& instr);
+    // Stage 5 null commit increments the PC by 4 and commits nothing.
+    void stage5_commit_null(PipelineStage& instr);
+    // Commits a stored value to a general purpose register.
+    void stage5_commit_gpreg(PipelineStage& instr);
+    // Commits a stored value to an extended register.
+    void stage5_commit_extreg(PipelineStage& instr);
+    // Commit a new program counter value and continue execution from there. Does not increment
+    // the PC.
+    void stage5_commit_pc(PipelineStage& instr);
+};
+
+struct PipelineStage {
+    // Program counter at instruction issuing (prevent prefetch PC from 
+    // giving incorrect results).
+    uint32_t pc_val;
+    // Raw, undecoded instruction (obtained in stage 1)
+    uint32_t instruction_bytes;
+    // Decoded instruction information (arguments, etc; gotten in stage 2)
+    isa::DecodedInstruction* decoded_instr;
+    // Stage 3 payload (machine instruction to execute)
+    Core::instr_table_ptr instr_func;
+    // Stage 4 payload (memory i/o action)
+    // Fully encoded instruction binary value.
+    Core::stage4_payload stage4;
+    // Stage 4 address to write the mem_data to.
+    uint32_t mem_addr;
+    // Data to commit to mem_addr in stage 4.
+    uint32_t mem_data;
+    // Stage 5 payload (commit to architectural state)
+    Core::stage5_payload stage5;
+    // GPREG/EXTREG id to commit to in stage 5
+    uint32_t reg_id;
+    // Register data to commit in stage 5 (if any)
+    uint32_t reg_commit_val;
+    // Alter the stack pointer. Typically zero except for specific instructions.
+    // Since the stack grows down, positive values decrease it and negative increase it.
+    int8_t stack_pointer_delta = 0;
+
+    // If set, don't commit this instruction to architectural state upon
+    // retirement.
+    bool invalid;
+    // Should be null in most cases, but if an interrupt is triggered, the vector to jump
+    // to will be stored here (and for faults all instructions in the pipeline will be marked
+    // invalid upon retirement).
+    uint32_t exception_vector;
 };
 
 }

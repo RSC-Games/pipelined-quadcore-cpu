@@ -10,6 +10,17 @@
 #ifndef INC_ISA_DECODE_H
 #define INC_ISA_DECODE_H
 
+// Conditional types:
+#define CMP_COND_EQUIVALENT         0
+#define CMP_COND_LESS_THAN          1
+#define CMP_COND_GREATHER_THAN      2
+#define CMP_COND_LESS_OR_EQUAL      3
+#define CMP_COND_GREATER_OR_EQUAL   4
+#define CMP_COND_NOT_EQUAL          5
+
+#define BNZ_COND_NOT_ZERO           0
+#define BNZ_COND_ZERO               1
+
 namespace isa {
 
 struct DecodedInstruction {
@@ -29,6 +40,9 @@ DecodedInstruction* _decode_instr_reg_16bimm(uint32_t instr);
 
 // See ./isa/src/common/isa_decode.cpp for implementation details.
 extern DecodedInstruction* (*instr_dispatch[256])(uint32_t);
+
+// Pipeline bubbling (exception/failed decode/etc)
+DecodedInstruction* get_empty_instr();
 
 // Decode a given instruction and return the pieces.
 DecodedInstruction* decode_instr(uint32_t instr);
