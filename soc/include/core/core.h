@@ -87,9 +87,6 @@ private:
     // TODO: Implement pipeline and instruction decoder.
     void CORE_run_pipeline();
 
-    // For debugging purposes. Print the exception type and PC.
-    void print_exception_frame(uint32_t exception);
-
     // Erase all uncommitted instructions from the instruction pipeline.
     // Essential if a branch misprediction occurred.
     void CORE_flush_pipeline();
@@ -103,6 +100,14 @@ private:
     // of that branch pattern.
     // Each branch instruction has its own saturation counter copy.
     inline void CORE_predict_branch();
+
+    // Get a register value, accounting for operand forwarding. regid includes
+    // all registers. To access EXTREGs, set bit 5 high.
+    inline uint32_t get_reg_operand_forwarded(int regid);
+
+    // For debugging purposes. Print the exception type and PC.
+    void print_exception_frame(uint32_t exception);
+    const char* get_error_state(PipelineStage& instr);
 
     // TODO: Add branch target predictor.
     // NOTE: Branch target buffer required to prevent pipeline stalling immediately

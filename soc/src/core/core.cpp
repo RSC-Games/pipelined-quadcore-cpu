@@ -22,8 +22,8 @@
 namespace core {
 
 Core::Core(core::Memory* mem, core::BootROM* bootrom) {
-    this->register_file = new unsigned int[16] {0};
-    this->extended_registers = new unsigned int[16] {0};
+    this->register_file = new unsigned int[16];
+    this->extended_registers = new unsigned int[16];
     this->pc = 0xFFFFFFFC;  // Core boots 4 bytes before the end of addressable memory.
     this->priv_lvl = core::PRIV_0_KERNEL_MODE; // Core starts in kernel mode.
     this->mmu = new core::MMU(mem, bootrom);
@@ -169,7 +169,7 @@ void Core::simulate() {
         //     // TODO: make portable.
         //     LOG_INFO("Executed thread... waiting for next instruction.");
         //     // TODO: Make sleep library... maybe?
-            Sleep(1000);
+            //Sleep(100);
         // }
         // // TODO: Catch emulated CPU exceptions. Currently unsupported.
         // catch (uint32_t exc) {
@@ -218,7 +218,7 @@ void Core::print_exception_frame(uint32_t exception) {
             break;
     }
 
-    std::cout << "Fatal: " << exception_name << " encountered at PC 0x" << std::hex << this->pc << "\n";
+    std::cout << "Fatal: " << exception_name << " encountered at PC 0x" << std::hex << this->pipeline_stages[4]->pc_val << "\n";
     std::cout << "Execution trapped. Hit enter to continue. \n> ";
 
     std::string _ = "";
@@ -226,14 +226,14 @@ void Core::print_exception_frame(uint32_t exception) {
 }
 
 void Core::CORE_instr_fetch() {
-    LOG_INFO("============================ PIPELINE STAGE 1 ============================");
     PipelineStage* current = this->pipeline_stages[0];
     current->pc_val = this->pc;
 
     uint32_t phy_addr = this->mmu->tlb_translate(this->pc);
     uint32_t instruction = this->mmu->load_word(phy_addr);
 
-    printf("fetched instruction opcode 0x%X from addr 0x%X\n", instruction, current->pc_val);
+    // TODO: Only print if a fetch can't be completed
+    //printf("fetched instruction opcode 0x%X from addr 0x%X\n", instruction, current->pc_val);
     current->instruction_bytes = instruction;
 
     // TODO: Branch target prediction (start fetching at the predicted target if the branch
@@ -246,7 +246,6 @@ void Core::CORE_instr_fetch() {
 }
 
 void Core::CORE_decode_instr() {
-    LOG_INFO("============================ PIPELINE STAGE 2 ============================");
     PipelineStage* current = this->pipeline_stages[1];
 
     try {
@@ -260,7 +259,7 @@ void Core::CORE_decode_instr() {
         LOG_WARNING("cpu fault during decode; marking as erroneous");
         current->decoded_instr = isa::get_empty_instr();
         // When retired, will need to mark all previous instructions invalid.
-        current->exception_vector = 0xDEADBEEF; // NOT IMPLEMENTED
+        current->exception_vector = exception; // NOT IMPLEMENTED (for now IDT jumps not supported)
         current->instr_func = &op_nop; // Don't wanna do anything.
         current->stage4 = &stage4_nop;
         current->stage5 = &stage5_commit_invalid;
@@ -268,7 +267,6 @@ void Core::CORE_decode_instr() {
 }
 
 void Core::CORE_execute_op() {
-    LOG_INFO("============================ PIPELINE STAGE 3 ============================");
     PipelineStage* current = this->pipeline_stages[2];
 
     isa::DecodedInstruction* decoded = current->decoded_instr;
@@ -285,7 +283,6 @@ void Core::CORE_execute_op() {
 }
 
 void Core::CORE_mem_access() {
-    LOG_INFO("============================ PIPELINE STAGE 4 ============================");
     PipelineStage* current = this->pipeline_stages[3];
 
     // Execute stage4 payload.
@@ -293,11 +290,9 @@ void Core::CORE_mem_access() {
 }
 
 void Core::CORE_commit_last_instr() {
-    LOG_INFO("============================ PIPELINE STAGE 5 ============================");
     // TODO: Write back the cached ALU output to a register (if necessary), then
     // retire the instruction.
     PipelineStage* current = this->pipeline_stages[4];
-    printf("retiring instruction: reg id %d reg data 0x%X invalid? %d\n", current->reg_id, current->reg_commit_val, current->invalid);
 
     // TODO: determine if instruction should be retired or if the entire pipeline should be invalidated.
     // Stage 4 doesn't matter for invalid instructions.
@@ -305,7 +300,7 @@ void Core::CORE_commit_last_instr() {
     if (current->invalid && current->stage5 != &stage5_commit_invalid) {
         LOG_ERROR("instruction marked as invalid but has pipeline side effects!");
 
-        //abort();
+        abort();
     }
 
     // Execute stage5 payload (if we're retiring it)
@@ -315,38 +310,55 @@ void Core::CORE_commit_last_instr() {
     // TODO: perform PC jump.
     if (!current->invalid && current->exception_vector != 0) {
         LOG_ERROR("INSTRUCTION RETIRED WITH EXCEPTION STATUS!!!!! not implemented");
-        throw current->exception_vector;
+        print_exception_frame(current->exception_vector);
     }
 }
 
 void Core::CORE_run_pipeline() {
-    // TODO: will require hazard detection (commit stage/execute require the same registers, data
-    //  dependency between 2 instructions)
     this->CORE_instr_fetch();
     this->CORE_decode_instr();
+    this->CORE_commit_last_instr(); // TODO: Running this ahead of execute_op could reduce a cycle of operand forwarding???
+                                    // TODO: Clean up the implementation and reduce consumed CPU cycles.
+    this->CORE_mem_access(); // Must run ahead of execute_op to prevent a supposedly mitigated pipeline hazard.
     this->CORE_execute_op();
-    this->CORE_mem_access();
-    this->CORE_commit_last_instr();
 
     // DEBUGGING: Print current pipeline state.
     #if VERBOSE_CPU
         LOG_INFO("######################## Current pipeline state ########################");
-        printf("stg1/fetch i:%i/e:%i: instr 0x%X prefetch PC 0x%08X \n", this->pipeline_stages[0]->invalid, 
-            this->pipeline_stages[0]->exception_vector != 0, this->pipeline_stages[0]->instruction_bytes, this->pc - 0x4);
-        printf("stg2/decode i:%i/e:%i: instr 0x%X decoded opcode 0x%X\n", this->pipeline_stages[1]->invalid, 
-            this->pipeline_stages[1]->exception_vector != 0, this->pipeline_stages[1]->instruction_bytes, 
-            this->pipeline_stages[1]->decoded_instr->instruction);
-        printf("stg3/exec i:%i/e:%i: instr 0x%X op cnt %d\n", this->pipeline_stages[2]->invalid, 
-            this->pipeline_stages[2]->exception_vector != 0, this->pipeline_stages[2]->instruction_bytes, 
-            this->pipeline_stages[2]->decoded_instr->operand_cnt);
-        printf("stg4/memop i:%i/e:%i: instr 0x%X stg4 0x%p addr 0x%X data 0x%X\n", this->pipeline_stages[3]->invalid, 
-            this->pipeline_stages[3]->exception_vector != 0, this->pipeline_stages[3]->instruction_bytes, this->pipeline_stages[3]->stage4, 
-            this->pipeline_stages[3]->mem_addr, this->pipeline_stages[3]->mem_data);
-        printf("stg5/commit i:%i/e:%i: instr 0x%X stg5 0x%p reg_id %d val 0x%X\n", this->pipeline_stages[4]->invalid, 
-            this->pipeline_stages[4]->exception_vector != 0, this->pipeline_stages[4]->instruction_bytes, this->pipeline_stages[4]->stage5, 
-            this->pipeline_stages[4]->reg_id, this->pipeline_stages[4]->reg_commit_val);
+        PipelineStage* cur_stage = this->pipeline_stages[0];
+        std::string ansi_code = get_error_state(*cur_stage);
+
+        printf("%sstg1/fetch i:%i/e:%i: instr 0x%X prefetch PC 0x%08X\033[0m\n", ansi_code.c_str(), cur_stage->invalid, 
+            cur_stage->exception_vector != 0, cur_stage->instruction_bytes, this->pc - 0x4);
+
+        cur_stage = this->pipeline_stages[1];
+        ansi_code = get_error_state(*cur_stage);
+
+        printf("%sstg2/decode i:%i/e:%i: instr 0x%X decoded opcode 0x%X\033[0m\n", ansi_code.c_str(), cur_stage->invalid, 
+            cur_stage->exception_vector != 0, cur_stage->instruction_bytes, cur_stage->decoded_instr->instruction);
+
+        cur_stage = this->pipeline_stages[2];
+        ansi_code = get_error_state(*cur_stage);
+
+        printf("%sstg3/exec i:%i/e:%i: instr 0x%X op cnt %d\033[0m\n", ansi_code.c_str(), cur_stage->invalid, 
+            cur_stage->exception_vector != 0, cur_stage->instruction_bytes, cur_stage->decoded_instr->operand_cnt);
+
+        cur_stage = this->pipeline_stages[3];
+        ansi_code = get_error_state(*cur_stage);
+
+        printf("%sstg4/memop i:%i/e:%i: instr 0x%X stg4 0x%p addr 0x%X data 0x%X\033[0m\n", ansi_code.c_str(),
+            cur_stage->invalid, cur_stage->exception_vector != 0, cur_stage->instruction_bytes, cur_stage->stage4, 
+            cur_stage->mem_addr, cur_stage->mem_data);
+
+        cur_stage = this->pipeline_stages[4];
+        ansi_code = get_error_state(*cur_stage);
+
+        printf("%sstg5/commit i:%i/e:%i: instr 0x%X stg5 0x%p reg_id %d val 0x%X\033[0m\n", ansi_code.c_str(), 
+            cur_stage->invalid, cur_stage->exception_vector != 0, cur_stage->instruction_bytes, cur_stage->stage5, 
+            cur_stage->reg_id, cur_stage->reg_commit_val);
+        
         LOG_INFO("######################## Current pipeline state ########################");
-        std::cout << "\n";
+        printf("\n");
         
         LOG_INFO("######################## CPU REGISTER FILE DUMP ########################");
         printf("Core (X): (No active fault condition)\n");
@@ -394,10 +406,47 @@ void Core::CORE_run_pipeline() {
     delete retired->decoded_instr;
     retired->decoded_instr = nullptr;
 
+    // Rotate pipeline stages
     for (int i = 4; i > 0; i--)
         this->pipeline_stages[i] = this->pipeline_stages[i-1];
 
     this->pipeline_stages[0] = retired;
+}
+
+void Core::CORE_flush_pipeline() {
+    // TODO: mark the entire pipeline as invalid except for this
+    // retiring instruction (since PC jumps will guaranteed make
+    // previous instructions irrelevant)
+    for (int i = 0; i < 4; i++) {
+        this->pipeline_stages[i]->invalid = true;
+        this->pipeline_stages[i]->stage5 = &stage5_commit_invalid;
+    }
+}
+
+inline uint32_t Core::get_reg_operand_forwarded(int regid) {
+    PipelineStage* stg4_state = this->pipeline_stages[3];
+    stage5_payload payload = stg4_state->stage5;
+
+    // TODO: clean up
+    if (regid & 0x10 && payload == &stage5_commit_extreg && stg4_state->reg_id == regid & 0xF) {
+        printf("detected pipeline forwarding event for extreg\n");
+        return stg4_state->reg_commit_val;
+    }
+    else if (payload == &stage5_commit_gpreg && stg4_state->reg_id == regid) {
+        printf("detected pipeline forwarding event for gpreg\n");
+        return stg4_state->reg_commit_val;
+    }
+
+    return regid & 0x10 ? this->extended_registers[regid & 0xF] : this->register_file[regid & 0xF];
+}
+
+const char* Core::get_error_state(PipelineStage& instr) {
+    if (instr.invalid)
+        return "\033[34m";
+    else if (instr.exception_vector)
+        return "\033[31m";
+    else
+        return "\033[0m";
 }
 
 inline Core::instr_table_ptr Core::resolve_instr_table_ptr(short instr_id) {
@@ -413,6 +462,7 @@ void Core::op_nop(PipelineStage& instr) {
 }
 
 void Core::op_add(PipelineStage& instr) {
+    printf(">>> EXECUTING add (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
     
@@ -420,98 +470,107 @@ void Core::op_add(PipelineStage& instr) {
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] + this->register_file[src_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) + get_reg_operand_forwarded(src_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_sub(PipelineStage& instr) {
+    printf(">>> EXECUTING sub (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] + ~this->register_file[src_reg] + 1;
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) + ~get_reg_operand_forwarded(src_reg) + 1;
     instr.reg_id = dest_reg;
 }
 
 void Core::op_mul(PipelineStage& instr) {
+    printf(">>> EXECUTING mul (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] * this->register_file[src_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) * get_reg_operand_forwarded(src_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_div(PipelineStage& instr) {
+    printf(">>> EXECUTING div (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] / this->register_file[src_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) / get_reg_operand_forwarded(src_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_and(PipelineStage& instr) {
+    printf(">>> EXECUTING and (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] & this->register_file[src_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) & get_reg_operand_forwarded(src_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_or(PipelineStage& instr) {
+    printf(">>> EXECUTING or (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] | this->register_file[src_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) | get_reg_operand_forwarded(src_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_xor(PipelineStage& instr) {
+    printf(">>> EXECUTING xor (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] ^ this->register_file[src_reg];
-    instr.reg_id = dest_reg;
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) ^ get_reg_operand_forwarded(src_reg);
+    instr.reg_id = dest_reg;   
 }
 
 void Core::op_not(PipelineStage& instr) { 
+    printf(">>> EXECUTING not (gpreg)\n");
     int operand_reg = instr.decoded_instr->operands[0];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = ~this->register_file[operand_reg];
+    instr.reg_commit_val = ~get_reg_operand_forwarded(operand_reg);
     instr.reg_id = operand_reg;
 }
 
 void Core::op_mov(PipelineStage& instr) {
+    printf(">>> EXECUTING mov (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int src_reg = instr.decoded_instr->operands[1];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[src_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(src_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_mov_imm(PipelineStage& instr) {
+    printf(">>> EXECUTING mov_imm (gpreg, imm20)\n");
     int dest_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_nop;
@@ -522,6 +581,7 @@ void Core::op_mov_imm(PipelineStage& instr) {
 }
 
 void Core::op_mov_imm_high(PipelineStage& instr) {
+    printf(">>> EXECUTING mov_imm_high (gpreg, imm16)\n");
     int dest_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_nop;
@@ -532,39 +592,43 @@ void Core::op_mov_imm_high(PipelineStage& instr) {
 }
 
 void Core::op_mov_ext(PipelineStage& instr) {
+    printf(">>> EXECUTING mov_ext (extreg, gpreg)\n");
     int dest_extreg = instr.decoded_instr->operands[0];
     int src_gpreg = instr.decoded_instr->operands[1];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_extreg;
-    instr.reg_commit_val = this->register_file[src_gpreg];
+    instr.reg_commit_val = get_reg_operand_forwarded(src_gpreg);
     instr.reg_id = dest_extreg;
 }
 
 void Core::op_mov_gp(PipelineStage& instr) {
+    printf(">>> EXECUTING mov_gp (gpreg, extreg)\n");
     int dest_gpreg = instr.decoded_instr->operands[0];
     int src_extreg = instr.decoded_instr->operands[1];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->extended_registers[src_extreg];
+    instr.reg_commit_val = get_reg_operand_forwarded(0x10 | src_extreg);
     instr.reg_id = dest_gpreg;
 }
 
 void Core::op_mov_ext2(PipelineStage& instr) {
+    printf(">>> EXECUTING mov_ext2 (extreg, extreg)\n");
     int dest_extreg = instr.decoded_instr->operands[0];
     int src_extreg = instr.decoded_instr->operands[1];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_extreg;
-    instr.reg_commit_val = this->extended_registers[src_extreg];
+    instr.reg_commit_val = get_reg_operand_forwarded(0x10 | src_extreg);
     instr.reg_id = dest_extreg;
 }
 
 void Core::op_mov_ext_imm(PipelineStage& instr) {
+    printf(">>> EXECUTING mov_ext_imm (extreg, imm20)\n");
     int dest_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_nop;
@@ -575,37 +639,40 @@ void Core::op_mov_ext_imm(PipelineStage& instr) {
 }
 
 void Core::op_ldb(PipelineStage& instr) {
+    printf(">>> EXECUTING ldb (gpreg, gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int addr_reg = instr.decoded_instr->operands[1];
     int offset_reg = instr.decoded_instr->operands[2];
 
     instr.stage4 = &stage4_load_byte;
-    instr.mem_addr = this->register_file[addr_reg] + this->register_file[offset_reg];
+    instr.mem_addr = get_reg_operand_forwarded(addr_reg) + get_reg_operand_forwarded(offset_reg);
     // mem_data unused for data load (loaded data is stored in reg_commit_val)
     instr.stage5 = &stage5_commit_gpreg;
     // reg_commit_val filled by stage4.
-    instr.reg_id = dest_reg;
+    instr.reg_id = dest_reg;    
 }
 
 void Core::op_stb(PipelineStage& instr) {
+    printf(">>> EXECUTING stb (gpreg, gpreg, gpreg)\n");
     int src_reg = instr.decoded_instr->operands[0];
     int addr_reg = instr.decoded_instr->operands[1];
     int offset_reg = instr.decoded_instr->operands[2];
 
     instr.stage4 = &stage4_store_byte;
-    instr.mem_addr = this->register_file[addr_reg] + this->register_file[offset_reg];
-    instr.mem_data = this->register_file[src_reg];
+    instr.mem_addr = get_reg_operand_forwarded(addr_reg) + get_reg_operand_forwarded(offset_reg);
+    instr.mem_data = get_reg_operand_forwarded(src_reg);
     instr.stage5 = &stage5_commit_null;
     // Stage 5 unused by stores.
 }
 
 void Core::op_ld(PipelineStage& instr) {
+    printf(">>> EXECUTING ld (gpreg, gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int addr_reg = instr.decoded_instr->operands[1];
     int offset_reg = instr.decoded_instr->operands[2];
     
     instr.stage4 = &stage4_load_word;
-    instr.mem_addr = this->register_file[addr_reg] + this->register_file[offset_reg];
+    instr.mem_addr = get_reg_operand_forwarded(addr_reg) + get_reg_operand_forwarded(offset_reg);
     // mem_data unused for data load (loaded data is stored in reg_commit_val)
     instr.stage5 = &stage5_commit_gpreg;
     // reg_commit_val filled by stage4.
@@ -613,91 +680,100 @@ void Core::op_ld(PipelineStage& instr) {
 }
 
 void Core::op_st(PipelineStage& instr) {
+    printf(">>> EXECUTING st (gpreg, gpreg, gpreg)\n");
     int src_reg = instr.decoded_instr->operands[0];
     int addr_reg = instr.decoded_instr->operands[1];
     int offset_reg = instr.decoded_instr->operands[2];
     
     instr.stage4 = &stage4_store_word;
-    instr.mem_addr = this->register_file[addr_reg] + this->register_file[offset_reg];
-    instr.mem_data = this->register_file[src_reg];
+    instr.mem_addr = get_reg_operand_forwarded(addr_reg) + get_reg_operand_forwarded(offset_reg);
+    instr.mem_data = get_reg_operand_forwarded(src_reg);
     instr.stage5 = &stage5_commit_null;
     // Stage 5 unused by stores.
 }
 
 void Core::op_lsh(PipelineStage& instr) {
+    printf(">>> EXECUTING lsh (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int shift_reg = instr.decoded_instr->operands[1];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] << this->register_file[shift_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) << get_reg_operand_forwarded(shift_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_lsh_imm(PipelineStage& instr) {
+    printf(">>> EXECUTING lsh_imm (gpreg, imm20)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] << instr.decoded_instr->operands[1];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) << instr.decoded_instr->operands[1];
     instr.reg_id = dest_reg;
 }
 
 void Core::op_rsh(PipelineStage& instr) {
+    printf(">>> EXECUTING rsh (gpreg, gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     int shift_reg = instr.decoded_instr->operands[1];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] >> this->register_file[shift_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) >> get_reg_operand_forwarded(shift_reg);
     instr.reg_id = dest_reg;
 }
 
 void Core::op_rsh_imm(PipelineStage& instr) {
+    printf(">>> EXECUTING rsh_imm (gpreg, imm20)\n");
     int dest_reg = instr.decoded_instr->operands[0];
     
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_gpreg;
-    instr.reg_commit_val = this->register_file[dest_reg] >> instr.decoded_instr->operands[1];
+    instr.reg_commit_val = get_reg_operand_forwarded(dest_reg) >> instr.decoded_instr->operands[1];
     instr.reg_id = dest_reg;
 }
 
 void Core::op_jmp_imm(PipelineStage& instr) {
+    printf(">>> EXECUTING jmp_imm (gpreg, imm20)\n");
     int addr_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_pc;
-    instr.reg_commit_val = this->register_file[addr_reg] + instr.decoded_instr->operands[1];
+    instr.reg_commit_val = get_reg_operand_forwarded(addr_reg) + instr.decoded_instr->operands[1];
     // reg_id not needed for a PC commit
 }
 
 void Core::op_jmp(PipelineStage& instr) {
+    printf(">>> EXECUTING jmp (gpreg, gpreg)\n");
     int addr_reg = instr.decoded_instr->operands[0];
     int offset_reg = instr.decoded_instr->operands[1];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_pc;
-    instr.reg_commit_val = this->register_file[addr_reg] + this->register_file[offset_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(addr_reg) + get_reg_operand_forwarded(offset_reg);
     // reg_id not needed for a PC commit
 }
 
 void Core::op_jmp_abs(PipelineStage& instr) {
+    printf(">>> EXECUTING jmp_abs (gpreg)\n");
     int addr_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_nop;
     // Don't set stage 4 parameters (not in use)
     instr.stage5 = &stage5_commit_pc;
-    instr.reg_commit_val = this->register_file[addr_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(addr_reg);
     // reg_id not needed for a PC commit
 }
 
 void Core::op_jmp_rel(PipelineStage& instr) {
+    printf(">>> EXECUTING jmp_rel (imm20)\n");
     // Sign extend the pc offset to 32 bits (from 20) to permit forward and backward jumps
     int jmp_rel_pc_offset = ((int)instr.decoded_instr->operands[0] << 12) >> 12;
     printf("got jump offset 0x%X, PC=0x%X, PC+jmp=0x%X\n", jmp_rel_pc_offset, instr.pc_val, instr.pc_val + jmp_rel_pc_offset);
@@ -711,16 +787,17 @@ void Core::op_jmp_rel(PipelineStage& instr) {
 }
 
 void Core::op_bnx(PipelineStage& instr) {
+    printf(">>> EXECUTING bnx (gpreg, gpreg, gpreg)\n");
     bool branch_if_zero = static_cast<boolean>(instr.decoded_instr->operands[0]);
     int operand_reg = instr.decoded_instr->operands[1];
     int addr_reg = instr.decoded_instr->operands[2];
     int offset_reg = instr.decoded_instr->operands[3];
 
-    bool operand_is_zero = !static_cast<boolean>(register_file[operand_reg]);
+    bool operand_is_zero = !static_cast<boolean>(get_reg_operand_forwarded(operand_reg));
 
     if (operand_is_zero == branch_if_zero) {
         instr.stage5 = &stage5_commit_pc;
-        instr.reg_commit_val = this->register_file[addr_reg] + this->register_file[offset_reg];
+        instr.reg_commit_val = get_reg_operand_forwarded(addr_reg) + get_reg_operand_forwarded(offset_reg);
         // reg_id not needed for a PC commit
     }
     else
@@ -732,10 +809,11 @@ void Core::op_bnx(PipelineStage& instr) {
 }
 
 void Core::op_cmp(PipelineStage& instr) {
+    printf(">>> EXECUTING cmp (cc, gpreg, gpreg, gpreg)\n");
     int comparison_code = instr.decoded_instr->operands[0];
     int dest_reg = instr.decoded_instr->operands[1];
-    int operand_1 = this->register_file[instr.decoded_instr->operands[2]];
-    int operand_2 = this->register_file[instr.decoded_instr->operands[3]];
+    int operand_1 = get_reg_operand_forwarded(instr.decoded_instr->operands[2]);
+    int operand_2 = get_reg_operand_forwarded(instr.decoded_instr->operands[3]);
 
     unsigned int commit;
 
@@ -768,13 +846,14 @@ void Core::op_cmp(PipelineStage& instr) {
 }
 
 void Core::op_call_rel(PipelineStage& instr) {
+    printf(">>> EXECUTING call_rel (imm20)\n");
     // Sign extend the pc offset to permit forward and backward jumps
     int rel_pc_offset = ((int)instr.decoded_instr->operands[0] << 16) >> 16;
     
     // Offset is already in two's complement; no reason to recompute that...
 
     instr.stage4 = &stage4_store_word;
-    instr.mem_addr = this->register_file[REG_XSP] - 0x4; // SP points at last word and stack grows down.
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP) - 0x4; // SP points at last word and stack grows down.
     instr.mem_data = instr.pc_val;
     instr.stage5 = &stage5_commit_pc;
     instr.reg_commit_val = instr.pc_val + rel_pc_offset;
@@ -783,33 +862,36 @@ void Core::op_call_rel(PipelineStage& instr) {
 }
 
 void Core::op_call_imm(PipelineStage& instr) {
+    printf(">>> EXECUTING call_imm (gpreg, imm20)\n");
     int addr_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_store_word;
-    instr.mem_addr = this->register_file[REG_XSP] - 0x4;
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP) - 0x4;
     instr.mem_data = instr.pc_val;
     instr.stage5 = &stage5_commit_pc;
-    instr.reg_commit_val = this->register_file[addr_reg] + instr.decoded_instr->operands[1];
+    instr.reg_commit_val = get_reg_operand_forwarded(addr_reg) + instr.decoded_instr->operands[1];
     instr.stack_pointer_delta = 0x4;
     // reg_id not needed for a PC commit
 }
 
 void Core::op_call(PipelineStage& instr) {
+    printf(">>> EXECUTING call (gpreg, gpreg)\n");
     int addr_reg = instr.decoded_instr->operands[0];
     int offset_reg = instr.decoded_instr->operands[1];
 
     instr.stage4 = &stage4_store_word;
-    instr.mem_addr = this->register_file[REG_XSP] - 0x4;
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP) - 0x4;
     instr.mem_data = instr.pc_val;
     instr.stage5 = &stage5_commit_pc;
-    instr.reg_commit_val = this->register_file[addr_reg] + this->register_file[offset_reg];
+    instr.reg_commit_val = get_reg_operand_forwarded(addr_reg) + get_reg_operand_forwarded(offset_reg);
     instr.stack_pointer_delta = 0x4;
     // reg_id not needed for a PC commit
 }
 
 void Core::op_ret(PipelineStage& instr) {
+    printf(">>> EXECUTING ret ()\n");
     instr.stage4 = &stage4_load_word;
-    instr.mem_addr = this->register_file[REG_XSP];
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP);
     // mem_data not used for loads.
     instr.stage5 = &stage5_commit_pc;
     // reg_commit_val set by stage4 payload
@@ -818,21 +900,23 @@ void Core::op_ret(PipelineStage& instr) {
 }
 
 void Core::op_push(PipelineStage& instr) {
+    printf(">>> EXECUTING push (gpreg)\n");
     int src_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_store_word;
-    instr.mem_addr = this->register_file[REG_XSP] - 0x4;
-    instr.mem_data = this->register_file[src_reg];
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP) - 0x4;
+    instr.mem_data = get_reg_operand_forwarded(src_reg);
     instr.stage5 = &stage5_commit_null;
     // Stage 5 inactive (only changes stack pointer)
     instr.stack_pointer_delta = 0x4;
 }
 
 void Core::op_pop(PipelineStage& instr) {
+    printf(">>> EXECUTING pop (gpreg)\n");
     int dest_reg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_load_word;
-    instr.mem_addr = this->register_file[REG_XSP];
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP);
     // mem_data not used for load
     instr.stage5 = &stage5_commit_gpreg;
     // reg_commit_val set by stage4.
@@ -841,21 +925,23 @@ void Core::op_pop(PipelineStage& instr) {
 }
 
 void Core::op_push_ext(PipelineStage& instr) {
+    printf(">>> EXECUTING push_ext (extreg)\n");
     int src_extreg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_store_word;
-    instr.mem_addr = this->register_file[REG_XSP] - 0x4;
-    instr.mem_data = this->extended_registers[src_extreg];
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP) - 0x4;
+    instr.mem_data = get_reg_operand_forwarded(0x10 | src_extreg);
     instr.stage5 = &stage5_commit_null;
     // Stage 5 inactive (only changes stack pointer)
     instr.stack_pointer_delta = 0x4;
 }
 
 void Core::op_pop_ext(PipelineStage& instr) {
+    printf(">>> EXECUTING pop_ext (extreg)\n");
     int dest_extreg = instr.decoded_instr->operands[0];
 
     instr.stage4 = &stage4_load_word;
-    instr.mem_addr = this->register_file[REG_XSP];
+    instr.mem_addr = get_reg_operand_forwarded(REG_XSP);
     // mem_data not used for load
     instr.stage5 = &stage5_commit_extreg;
     // reg_commit_val set by stage4.
@@ -902,7 +988,6 @@ void Core::op_cpuid(PipelineStage& instr) {
 
 void Core::stage4_nop(PipelineStage& /* instr */) {
     // Nothing to do here (intentionally empty)
-    LOG_INFO("GOT TO STAGE 4 (nop)");
 }
 
 void Core::stage4_load_byte(PipelineStage& instr) {
@@ -960,13 +1045,7 @@ void Core::stage5_commit_pc(PipelineStage& instr) {
     this->register_file[REG_XSP] -= instr.stack_pointer_delta;
     this->pc = instr.reg_commit_val;
 
-    // TODO: mark the entire pipeline as invalid except for this
-    // retiring instruction (since PC jumps will guaranteed make
-    // previous instructions irrelevant)
-    for (int i = 0; i < 4; i++) {
-        this->pipeline_stages[i]->invalid = true;
-        this->pipeline_stages[i]->stage5 = &stage5_commit_invalid;
-    }
+    CORE_flush_pipeline();
 }
 
 #pragma endregion
